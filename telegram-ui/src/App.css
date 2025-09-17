@@ -1,0 +1,104 @@
+#root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card { padding: 0; }
+
+.read-the-docs { color: inherit; }
+
+
+/* From Uiverse.io by adamgiebl */ 
+.loader {
+  width: 64px;
+  height: 64px;
+  position: relative;
+  background: #FFF;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.loader:before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 40px;
+  height: 40px;
+  transform: rotate(45deg) translate(30%, 40%);
+  background: #933c3c;
+  box-shadow: 32px -34px 0 5px #650a0a;
+  animation: slide 2s infinite ease-in-out alternate;
+}
+
+.loader:after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #650a0a;
+  transform: rotate(0deg);
+  transform-origin: 35px 145px;
+  animation: rotate 2s infinite ease-in-out;
+}
+
+@keyframes slide {
+  0% , 100% {
+    bottom: -35px
+  }
+
+  25% , 75% {
+    bottom: -2px
+  }
+
+  20% , 80% {
+    bottom: 2px
+  }
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(-15deg)
+  }
+
+  25% , 75% {
+    transform: rotate(0deg)
+  }
+
+  100% {
+    transform: rotate(25deg)
+  }
+}
