@@ -70,7 +70,23 @@ export const useAuth = () => {
     try {
       const formData = new FormData()
       formData.append('avatar', file)
-      const { data } = await apiClient.post('/upload/avatar', formData)
+      const { data } = await apiClient.post('/upload/avatar', formData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      
+      // After uploading, update the user's avatar URL
+      if (data.url) {
+        const updateResponse = await apiClient.put('/users/avatar', { avatar: data.url }, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        return updateResponse.data
+      }
+      
       return data
     } catch (err) {
       return handleError(err, 'Avatar yuklashda xatolik')

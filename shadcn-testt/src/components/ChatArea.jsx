@@ -78,6 +78,7 @@ const ChatArea = ({
     editMessage,
     deleteMessage,
     markChatAsRead,
+    markMessagesAsRead,
   } = useChat();
 
   const { checkGroupStatus, joinGroup, leaveGroup, deleteGroup } = useGroups();
@@ -573,6 +574,10 @@ const ChatArea = ({
           // Mark as read if user is active and message is not from self
           if (messageData.user.id !== user?.id && document.hasFocus()) {
             markMessageAsRead(messageData.id);
+          } else if (messageData.user.id !== user?.id) {
+            // Even if not in focus, we should still track that the message exists
+            // This will be marked as read when the user scrolls to it or focuses the window
+            console.log('New message received but not in focus, will mark as read when focused');
           }
         }
       };
@@ -592,6 +597,32 @@ const ChatArea = ({
         
         // Handle multiple messages read update (bulk read)
         if (data.messageIds && Array.isArray(data.messageIds)) {
+          const reader = data.reader;
+          const readAt = data.timestamp;
+          
+          setMessageReadStatus(prev => {
+            const updated = { ...prev };
+            data.messageIds.forEach(msgId => {
+              const currentReaders = updated[msgId] || [];
+              const alreadyRead = currentReaders.some(r => r.id === reader.id);
+              
+              if (!alreadyRead) {
+                updated[msgId] = [
+                  ...currentReaders,
+                  {
+                    id: reader.id,
+                    username: reader.username,
+                    readAt: readAt
+                  }
+                ];
+              }
+            });
+            return updated;
+          });
+        }
+        
+        // Handle messageReadReceipt events (from server)
+        if (data.type === "messageReadReceipt" && data.messageIds) {
           const reader = data.reader;
           const readAt = data.timestamp;
           
@@ -780,6 +811,17 @@ const ChatArea = ({
         visibleMessages.forEach(msg => {
           markMessageAsRead(msg.id);
         });
+        
+        // Also mark as read on server for better consistency
+        if (visibleMessages.length > 0) {
+          const messageIds = visibleMessages.map(msg => msg.id);
+          const token = storage.getPersistent("chatToken");
+          if (token) {
+            markMessagesAsRead(token, chatType, currentChat.id, messageIds).catch(err => {
+              console.error('Error marking messages as read on server:', err);
+            });
+          }
+        }
       } else {
         // Show jump button if not at bottom
         const hasUnseenMessages = newMessagesCount > 0;
@@ -795,17 +837,38 @@ const ChatArea = ({
 
   // Add all necessary useEffects and event handlers
   useEffect(() => {
-    const hide = () => {
+    const hide = (e) => {
+      // Don't close menu if click is inside the menu
+      if (e.target.closest('.chat-header-menu')) {
+        return;
+      }
       closeContextMenu();
       setShowMenu(false);
     };
+    
+    const handleWindowFocus = () => {
+      // When window gains focus, mark visible messages as read
+      if (currentChat && user?.id && messages.length > 0) {
+        const visibleMessages = messages.filter(msg => 
+          msg.user.id !== user.id && !messageReadStatus[msg.id]?.some(reader => reader.id === user.id)
+        );
+        
+        visibleMessages.forEach(msg => {
+          markMessageAsRead(msg.id);
+        });
+      }
+    };
+    
     window.addEventListener("click", hide);
     window.addEventListener("scroll", hide);
+    window.addEventListener("focus", handleWindowFocus);
+    
     return () => {
       window.removeEventListener("click", hide);
       window.removeEventListener("scroll", hide);
+      window.removeEventListener("focus", handleWindowFocus);
     };
-  }, []);
+  }, [currentChat, user?.id, messages, messageReadStatus]);
 
   useEffect(() => {
     if (currentChat) {
@@ -1096,6 +1159,13 @@ const ChatArea = ({
         ]
       }));
       
+      // Also mark as read on the server
+      try {
+        await markMessagesAsRead(token, chatType, currentChat.id, [messageId]);
+      } catch (error) {
+        console.error('Error marking message as read on server:', error);
+      }
+      
     } catch (error) {
       console.error('Error marking message as read:', error);
     }
@@ -1270,10 +1340,11 @@ const ChatArea = ({
 
             {/* Dropdown menu */}
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 chat-header-menu">
                 <button
                   className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (onClearHistory) {
                       onClearHistory();
                     }
@@ -1288,7 +1359,8 @@ const ChatArea = ({
                 {chatType === "private" && (
                   <button
                     className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 border-b border-gray-100 flex items-center"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (onDeleteChat) {
                         onDeleteChat();
                       }
@@ -1305,7 +1377,8 @@ const ChatArea = ({
                     {groupStatus?.role === "creator" && (
                       <button
                         className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 border-b border-gray-100 flex items-center"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setShowGroupDeleteModal(true);
                           setShowMenu(false);
                         }}
@@ -1316,7 +1389,8 @@ const ChatArea = ({
                     
                     <button
                       className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setShowGroupLeaveModal(true);
                         setShowMenu(false);
                       }}
@@ -1367,7 +1441,7 @@ const ChatArea = ({
                   data-message-user-id={msg.user.id}
                 >
                   {!isSelf && (
-                    <Avatar className="w-8 h-8 mr-2 mt-1">
+                    <Avatar className="w-8 h-8 mr-2 self-end">
                       {msg.user?.avatar && (
                         <AvatarImage src={toAbsoluteUrl(msg.user.avatar)} alt="avatar" />
                       )}
