@@ -27,11 +27,13 @@ import {
 } from "lucide-react";
 import { useGroups } from "../hooks/useGroups";
 import { useChat } from "../hooks/useChat";
+import { useChannels } from "../hooks/useChannels";
 import { useToast } from "../hooks/use-toast";
 import EmojiPicker from "./EmojiPicker";
 import TypingIndicator from "./TypingIndicator";
 import ImageUpload from "./ImageUpload";
 import GroupInfoDialog from "./GroupInfoDialog";
+import ChannelInfoDialog from "./ChannelInfoDialog";
 import OnlineStatusIndicator from "./OnlineStatusIndicator";
 import VoiceMessagePlayer from "./VoiceMessagePlayer";
 import { useTyping } from "../hooks/useTyping";
@@ -53,6 +55,7 @@ const ChatArea = ({
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [groupStatus, setGroupStatus] = useState(null);
+  const [channelStatus, setChannelStatus] = useState(null);
   const [messageReadStatus, setMessageReadStatus] = useState({}); // Track read status per message
   const [messageViewStatus, setMessageViewStatus] = useState({}); // Track who is currently viewing each message
   const [showJumpButton, setShowJumpButton] = useState(false); // Show jump to bottom button
@@ -82,6 +85,7 @@ const ChatArea = ({
   } = useChat();
 
   const { checkGroupStatus, joinGroup, leaveGroup, deleteGroup } = useGroups();
+  const { getChannelStatus, joinChannel, leaveChannel } = useChannels();
   const { toast } = useToast();
   const [showMenu, setShowMenu] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Emoji picker state
@@ -506,6 +510,18 @@ const ChatArea = ({
 
       setShowGroupLeaveModal(false);
       setGroupStatus({ isMember: false });
+
+      // Remove from UI immediately
+      window.dispatchEvent(
+        new CustomEvent("chat-deleted", {
+          detail: {
+            chatType: "group",
+            chatId: currentChat.id,
+            deletedBy: user?.id,
+            timestamp: new Date().toISOString(),
+          },
+        })
+      );
     } catch (error) {
       toast({
         title: "Xatolik",
@@ -839,7 +855,7 @@ const ChatArea = ({
   useEffect(() => {
     const hide = (e) => {
       // Don't close menu if click is inside the menu
-      if (e.target.closest('.chat-header-menu')) {
+      if (e.target.closest('.chat-header-menu') || e.target.closest('.chat-header-menu-toggle')) {
         return;
       }
       closeContextMenu();
@@ -882,6 +898,8 @@ const ChatArea = ({
       loadMessages();
       if (chatType === "group") {
         checkGroupMembership();
+      } else if (chatType === "channel") {
+        checkChannelMembership();
       }
     }
   }, [currentChat?.id, chatType]);
@@ -988,6 +1006,20 @@ const ChatArea = ({
     } catch (error) {
       console.error("Error checking group/channel status:", error);
       setGroupStatus({ isMember: false, canJoin: true });
+    }
+  };
+
+  // Kanal statusini tekshirish
+  const checkChannelMembership = async () => {
+    try {
+      const token = storage.getPersistent("chatToken");
+      if (!token) return;
+
+      const status = await getChannelStatus(token, currentChat.id);
+      setChannelStatus(status);
+    } catch (error) {
+      console.error("Error checking channel status:", error);
+      setChannelStatus({ isMember: false, role: "none" });
     }
   };
 
@@ -1206,14 +1238,14 @@ const ChatArea = ({
   }
 
   const isGroupMember = groupStatus?.isMember;
+  const isChannelWriter = channelStatus?.role === "creator" || channelStatus?.role === "admin";
 
   return (
     <div className="flex-1 flex flex-col bg-white h-full">
-      {/* Chat Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
         <div className="flex items-center space-x-3">
           <div
-            className="cursor-pointer hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
+            className="cursor-pointer  rounded-lg p-2 -m-2 transition-colors"
             onClick={() => {
               console.log('🎯 Header clicked - chatType:', chatType, 'currentChat.id:', currentChat?.id);
               if (chatType === "group" || chatType === "channel") {
@@ -1256,7 +1288,7 @@ const ChatArea = ({
           </div>
 
           <div
-            className="cursor-pointer flex-1 hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
+            className="cursor-pointer flex-1 rounded-lg pl-1  pr-5 m-2 transition-colors"
             onClick={() => {
               console.log('🎯 Header name clicked - chatType:', chatType, 'currentChat.id:', currentChat?.id);
               if (chatType === "group" || chatType === "channel") {
@@ -1281,7 +1313,7 @@ const ChatArea = ({
             {(chatType === "group" || chatType === "channel") && (
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <span>{currentChat.memberCount || 0} a'zo</span>
-                {currentChat.onlineMembersCount !== undefined && (
+                {isGroupMember && currentChat.onlineMembersCount !== undefined && (
                   <>
                     <span>•</span>
                     <span className="text-green-600">
@@ -1328,12 +1360,12 @@ const ChatArea = ({
           )}
 
           {/* Menu button */}
-          <div className="relative">
+          <div className="relative chat-header-menu-toggle">
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => setShowMenu(!showMenu)}
+              onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
             >
               <MoreVertical className="h-4 w-4" />
             </Button>
@@ -1351,7 +1383,7 @@ const ChatArea = ({
                     setShowMenu(false);
                   }}
                 >
-                  Tarixni tozalash
+                   Tarixni tozalash
                 </button>
 
                 {/* Delete chat option */}
@@ -1367,7 +1399,7 @@ const ChatArea = ({
                       setShowMenu(false);
                     }}
                   >
-                    Chatni o'chirish
+                    <Trash2 width={20} />  Chatni o'chirish
                   </button>
                 )}
 
@@ -1524,7 +1556,7 @@ const ChatArea = ({
                             {msg.content}
                             {/* Footer for text-only messages */}
                             <div className="flex items-center justify-end gap-1 mt-2">
-                              <span className={`text-xs ${
+                              <span className={`text-xs  ${
                                 isSelf ? 'text-blue-200' : 'text-gray-500'
                               }`}>
                                 {msg.isEdited && 'edited • '}
@@ -1533,6 +1565,12 @@ const ChatArea = ({
                                   minute: '2-digit'
                                 })}
                               </span>
+                              {/* Channel view count */}
+                              {chatType === 'channel' && (
+                                <span className={`text-xs ${isSelf ? 'text-blue-200' : 'text-gray-500'}`} title="Ko'rilganlar soni">
+                                  {Array.isArray(messageReaders) ? messageReaders.length : 0}
+                                </span>
+                              )}
                               
                               {isSelf && (
                                 <div>
@@ -1553,6 +1591,33 @@ const ChatArea = ({
                             isSelf ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'
                           } rounded-b-2xl`}>
                             {msg.content}
+                            {/* Footer inside the caption bubble to avoid white background */}
+                            <div className="flex items-center justify-end gap-1 mt-2">
+                              <span className={`text-xs  ${
+                                isSelf ? 'text-blue-200' : 'text-gray-600'
+                              }`}>
+                                {msg.isEdited && 'edited • '}
+                                {new Date(msg.timestamp).toLocaleTimeString('uz-UZ', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                              {/* Channel view count */}
+                              {chatType === 'channel' && (
+                                <span className={`text-xs ${isSelf ? 'text-blue-200' : 'text-gray-600'}`} title="Ko'rilganlar soni">
+                                  {Array.isArray(messageReaders) ? messageReaders.length : 0}
+                                </span>
+                              )}
+                              {isSelf && (
+                                <div>
+                                  {isRead ? (
+                                    <CheckCheck className="w-4 h-4 text-blue-300" title={`${messageReaders.length} kishi o'qidi`} />
+                                  ) : (
+                                    <Check className="w-4 h-4 text-blue-300" title="Yuborildi" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                         
@@ -1565,8 +1630,8 @@ const ChatArea = ({
                           </div>
                         )}
                         
-                        {/* Message footer for images and image+text combinations (text-only and voice have built-in footers) */}
-                        {!msg.voiceMessage && !(msg.content && !msg.image) && (
+                        {/* Message footer for image-only (overlay). Text-only and image+text have inline footers; voice handled in component */}
+                        {!msg.voiceMessage && msg.image && !msg.content && (
                           <div className={`flex items-center justify-end gap-1 mt-1 ${
                             msg.image && msg.content ? 'px-3 pb-2' : 
                             msg.image && !msg.content ? 'absolute bottom-2 right-2 bg-black bg-opacity-50 rounded px-2 py-1' :
@@ -1582,6 +1647,12 @@ const ChatArea = ({
                                 minute: '2-digit'
                               })}
                             </span>
+                            {/* Channel view count */}
+                            {chatType === 'channel' && (
+                              <span className={`text-xs ${msg.image && !msg.content ? 'text-white' : (isSelf ? 'text-blue-200' : 'text-gray-400')}`} title="Ko'rilganlar soni">
+                                {Array.isArray(messageReaders) ? messageReaders.length : 0}
+                              </span>
+                            )}
                             
                             {isSelf && (
                               <div>
@@ -1659,8 +1730,35 @@ const ChatArea = ({
         </div>
       )}
 
+      {/* Channel join section */}
+      {chatType === "channel" && !(channelStatus?.isMember) && (
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="text-center">
+            <p className="text-gray-600 mb-3">
+              Bu kanalga a'zo emassiz
+            </p>
+            <Button
+              onClick={async () => {
+                try {
+                  const token = storage.getPersistent("chatToken");
+                  if (!token) return;
+                  await joinChannel(token, currentChat.id);
+                  toast({ title: "Kanalga qo'shildingiz!", description: "Endi kanal xabarlarini ko'rasiz" });
+                  checkChannelMembership();
+                } catch (error) {
+                  toast({ title: "Xatolik!", description: error?.message || "Kanalga qo'shilishda xatolik", variant: "destructive" });
+                }
+              }}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              Kanalga qo'shilish
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Message input */}
-      {(chatType === "private" || isGroupMember) && (
+      {(chatType === "private" || isGroupMember || (chatType === "channel" && isChannelWriter)) && (
         <div className="p-4 border-t border-gray-200 bg-white">
           <div className="flex items-end space-x-2">
             {/* Emoji Picker */}
@@ -1838,24 +1936,35 @@ const ChatArea = ({
         />
       )}
 
-      {/* GroupInfoDialog */}
+      {/* Info Dialogs */}
       {showGroupInfo && (
         <>
           {console.log('🔍 Rendering GroupInfoDialog - showGroupInfo:', showGroupInfo, 'groupId:', currentChat?.id, 'chatType:', chatType)}
-          <GroupInfoDialog
-            isOpen={showGroupInfo}
-            onClose={() => {
-              console.log('🚪 Closing GroupInfoDialog');
-              setShowGroupInfo(false);
-            }}
-            groupId={currentChat?.id}
-          />
+          {(chatType === 'group') ? (
+            <GroupInfoDialog
+              isOpen={showGroupInfo}
+              onClose={() => {
+                console.log('🚪 Closing GroupInfoDialog');
+                setShowGroupInfo(false);
+              }}
+              groupId={currentChat?.id}
+            />
+          ) : (
+            <ChannelInfoDialog
+              isOpen={showGroupInfo}
+              onClose={() => {
+                console.log('🚪 Closing ChannelInfoDialog');
+                setShowGroupInfo(false);
+              }}
+              channelId={currentChat?.id}
+            />
+          )}
         </>
       )}
 
     {/* Group Delete Modal */}
     {showGroupDeleteModal && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-gray-100/50 bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
           <div className="flex items-center mb-4">
             <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
@@ -1902,9 +2011,8 @@ const ChatArea = ({
       </div>
     )}
 
-    {/* Group Leave Modal */}
     {showGroupLeaveModal && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-gray-100/50 bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
           <div className="flex items-center mb-4">
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">

@@ -149,6 +149,34 @@ exports.addMember = async (req, res) => {
     });
     const group = await Group.findByPk(groupId);
     await group.update({ memberCount: group.memberCount + 1 });
+
+    // Broadcast updated memberCount to all members
+    await broadcastGroupUpdate(req.app.locals.wss, groupId, {
+      type: 'groupInfoUpdated',
+      data: {
+        groupId,
+        updatedBy: req.userId,
+        updates: { memberCount: group.memberCount }
+      }
+    });
+    // Broadcast online count snapshot
+    try {
+      const activeMembers = await GroupMember.findAll({ where: { groupId, isActive: true }, include: [{ model: User, attributes: ['id', 'isOnline'] }] });
+      const onlineCount = activeMembers.filter(m => m.User && m.User.isOnline).length;
+      const memberIds = activeMembers.map(m => m.userId);
+      if (req.app.locals.wss) {
+        req.app.locals.wss.clients.forEach((client) => {
+          if (client.readyState === 1 && client.userId && memberIds.includes(client.userId)) {
+            try {
+              client.send(JSON.stringify({
+                type: 'groupOnlineCountUpdate',
+                data: { groupId, onlineCount, updatedUserId: userId, isOnline: true, timestamp: new Date() }
+              }));
+            } catch {}
+          }
+        });
+      }
+    } catch {}
     res.status(200).json({
       message: "Member added successfully!"
     });
@@ -204,6 +232,32 @@ exports.requestToJoinGroup = async (req, res) => {
           }
         });
       }
+      // Broadcast to existing members: memberCount and online-count snapshot
+      await broadcastGroupUpdate(req.app.locals.wss, groupId, {
+        type: 'groupInfoUpdated',
+        data: {
+          groupId,
+          updatedBy: req.userId,
+          updates: { memberCount: group.memberCount }
+        }
+      });
+      try {
+        const activeMembers = await GroupMember.findAll({ where: { groupId, isActive: true }, include: [{ model: User, attributes: ['id', 'isOnline'] }] });
+        const onlineCount = activeMembers.filter(m => m.User && m.User.isOnline).length;
+        const memberIds = activeMembers.map(m => m.userId);
+        if (req.app.locals.wss) {
+          req.app.locals.wss.clients.forEach((client) => {
+            if (client.readyState === 1 && client.userId && memberIds.includes(client.userId)) {
+              try {
+                client.send(JSON.stringify({
+                  type: 'groupOnlineCountUpdate',
+                  data: { groupId, onlineCount, updatedUserId: req.userId, isOnline: true, timestamp: new Date() }
+                }));
+              } catch {}
+            }
+          });
+        }
+      } catch {}
       return res.status(200).json({
         message: "Successfully joined the group!",
         joined: true
@@ -273,6 +327,42 @@ exports.leaveGroup = async (req, res) => {
         userId: req.userId
       }
     });
+    // Notify the leaver to remove the group from their UI immediately
+    if (req.app.locals.wss) {
+      req.app.locals.wss.clients.forEach((client) => {
+        if (client.readyState === 1 && client.userId && parseInt(client.userId) === parseInt(req.userId)) {
+          try {
+            client.send(JSON.stringify({
+              type: 'chatDeleted',
+              data: {
+                chatType: 'group',
+                chatId: parseInt(groupId),
+                deletedBy: req.userId,
+                timestamp: new Date().toISOString()
+              }
+            }));
+          } catch {}
+        }
+      });
+    }
+    // Also broadcast fresh online count to members
+    try {
+      const activeMembers = await GroupMember.findAll({ where: { groupId, isActive: true }, include: [{ model: User, attributes: ['id', 'isOnline'] }] });
+      const onlineCount = activeMembers.filter(m => m.User && m.User.isOnline).length;
+      const memberIds = activeMembers.map(m => m.userId);
+      if (req.app.locals.wss) {
+        req.app.locals.wss.clients.forEach((client) => {
+          if (client.readyState === 1 && client.userId && memberIds.includes(client.userId)) {
+            try {
+              client.send(JSON.stringify({
+                type: 'groupOnlineCountUpdate',
+                data: { groupId, onlineCount, updatedUserId: req.userId, isOnline: false, timestamp: new Date() }
+              }));
+            } catch {}
+          }
+        });
+      }
+    } catch {}
     res.status(200).json({
       message: "Successfully left the group!"
     });
@@ -319,7 +409,9 @@ exports.checkGroupStatus = async (req, res) => {
           isPrivate: group.isPrivate,
           memberCount: group.memberCount,
           onlineMembersCount: onlineMembers.length,
-          creator: group.creator
+          creator: group.creator,
+          createdAt: group.createdAt,
+          updatedAt: group.updatedAt
         }
       });
     } else {
@@ -334,7 +426,9 @@ exports.checkGroupStatus = async (req, res) => {
           type: group.type,
           isPrivate: group.isPrivate,
           memberCount: group.memberCount,
-          creator: group.creator
+          creator: group.creator,
+          createdAt: group.createdAt,
+          updatedAt: group.updatedAt
         }
       });
     }

@@ -157,6 +157,22 @@ const ChatApp = () => {
     return () => window.removeEventListener("open-user-info", handler);
   }, []);
   useEffect(() => {
+    const handleChatDeleted = (e) => {
+      const { chatType, chatId } = e.detail || {};
+      const openedId = currentChat?.id || currentChat?.chatId;
+      if (!openedId) return;
+      if (parseInt(openedId) === parseInt(chatId)) {
+        setCurrentChat(null);
+        const cacheKey = user?.id ? `currentChat_${user.id}` : 'currentChat';
+        storage.removePersistent(cacheKey);
+        storage.removePersistent('currentChat');
+        navigate('/chat', { replace: true });
+      }
+    };
+    window.addEventListener('chat-deleted', handleChatDeleted);
+    return () => window.removeEventListener('chat-deleted', handleChatDeleted);
+  }, [currentChat, user?.id, navigate]);
+  useEffect(() => {
     const startHandler = (e) => {
       window.dispatchEvent(
         new CustomEvent("sidebar-start-chat", { detail: e.detail })

@@ -49,6 +49,12 @@ module.exports = (sequelize, Sequelize) => {
         key: 'id'
       }
     },
+    isEdited: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'Message edited flag'
+    },
     timestamp: {
       type: Sequelize.DATE,
       defaultValue: Sequelize.NOW

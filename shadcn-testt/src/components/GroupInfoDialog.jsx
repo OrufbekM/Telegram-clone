@@ -172,12 +172,6 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
         setCurrentUserRole(statusData.role);
         const initialOnlineCount = statusData.group.onlineMembersCount || 0;
         setOnlineCount(initialOnlineCount);
-        window.dispatchEvent(new CustomEvent('group-online-count-updated', {
-          detail: {
-            groupId: groupId,
-            onlineCount: initialOnlineCount
-          }
-        }));
         console.log('вњ… Group details set:', statusData.group);
         console.log('рџЋ­ User role:', statusData.role);
         console.log('рџ‘Ґ Initial online count:', initialOnlineCount);
@@ -198,24 +192,12 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
             const serverOnlineCount = membersData.onlineMembers || 0;
             console.log('рџџў Setting online count to:', serverOnlineCount);
             setOnlineCount(serverOnlineCount);
-            window.dispatchEvent(new CustomEvent('group-online-count-updated', {
-              detail: {
-                groupId: groupId,
-                onlineCount: serverOnlineCount
-              }
-            }));
             console.log('вњ… Members set successfully:', membersData.members.length, 'members');
             console.log('рџ‘Ґ Server online count:', serverOnlineCount);
           } else {
             console.warn('вљ пёЏ No members data in response');
             setMembers([]);
             setOnlineCount(0);
-            window.dispatchEvent(new CustomEvent('group-online-count-updated', {
-              detail: {
-                groupId: groupId,
-                onlineCount: 0
-              }
-            }));
           }
         } catch (membersError) {
           console.error('вќЊ Error fetching members:', membersError);
@@ -303,12 +285,6 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
               : member
           );
           const newOnlineCount = updatedMembers.filter(member => member.isOnline).length;
-          window.dispatchEvent(new CustomEvent('group-online-count-updated', {
-            detail: {
-              groupId: groupId,
-              onlineCount: newOnlineCount
-            }
-          }));
           return newOnlineCount;
         });
       }
@@ -466,7 +442,7 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
                     </Button>
                   </div>
                 </div>
-                <div>
+                <div onWheel={(e)=> e.stopPropagation()}>
                   <Label htmlFor="groupName">Guruh nomi</Label>
                   <Input
                     id="groupName"
@@ -475,7 +451,7 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
                     placeholder="Guruh nomi"
                   />
                 </div>
-                <div>
+                <div onWheel={(e)=> e.stopPropagation()}>
                   <Label htmlFor="groupDescription">Ta'rif</Label>
                   <Input
                     id="groupDescription"

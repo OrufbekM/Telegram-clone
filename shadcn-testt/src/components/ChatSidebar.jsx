@@ -15,6 +15,7 @@ import {
   Folder,
   User,
   LayoutGrid,
+  Megaphone,
 } from "lucide-react";
 import { useGroups } from "../hooks/useGroups";
 import { useUsers } from "../hooks/useUsers";
@@ -760,6 +761,17 @@ const ChatSidebar = ({
               <Users className="w-4 h-4 inline mr-1" />
               Guruhlar
             </button>
+            <button
+              className={`flex items-center flex-1 px-4 py-2 text-sm font-medium text-center ${
+                activeTab === "channels"
+                  ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              }`}
+              onClick={() => setActiveTab("channels")}
+            >
+              <Megaphone className="w-4 h-4 inline mr-1" />
+              Kanallar
+            </button>
           </div>
         </div>
       }
@@ -864,7 +876,7 @@ const ChatSidebar = ({
                           </p>
                           <div className="flex items-center space-x-2 text-xs text-gray-400">
                             <span>{group.memberCount || 0} a'zo</span>
-                            {group.onlineMembersCount !== undefined && (
+                            {group.isMember && group.onlineMembersCount !== undefined && (
                               <>
                                 <span>вЂў</span>
                                 <span className="text-green-600">
@@ -941,7 +953,7 @@ const ChatSidebar = ({
                           </p>
                           <div className="flex items-center space-x-2 text-xs text-gray-400">
                             <span>{channel.memberCount || 0} a'zo</span>
-                            {channel.onlineMembersCount !== undefined && (
+                            {channelMemberships[channel.id]?.isMember && channel.onlineMembersCount !== undefined && (
                               <>
                                 <span>вЂў</span>
                                 <span className="text-green-600">
@@ -1159,9 +1171,9 @@ const ChatSidebar = ({
                         <p className="text-sm text-gray-500 truncate">
                           {group.description}
                         </p>
-                        <div className="flex items-center space-x-2 text-xs text-gray-400">
+                          <div className="flex items-center space-x-2 text-xs text-gray-400">
                           <span>{group.memberCount} a'zo</span>
-                          {group.onlineMembersCount !== undefined && (
+                          {(group.isMember || groupMemberships[group.id]?.isMember) && group.onlineMembersCount !== undefined && (
                             <>
                               <span>•</span>
                               <span className="text-green-600">
@@ -1188,14 +1200,20 @@ const ChatSidebar = ({
                   ))}
               </div>
             )}
-            {}
-            {(activeTab === "all" || activeTab === "groups") &&
+            {(activeTab === "all" || activeTab === "channels") &&
               channels.length > 0 && (
                 <div className="p-3">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-medium text-gray-700">
                       Kanallar
                     </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.dispatchEvent(new Event("open-create-channel"))}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
                   </div>
                   {channels.map((channel) => (
                     <div
@@ -1225,9 +1243,9 @@ const ChatSidebar = ({
                         <p className="text-sm text-gray-500 truncate">
                           {channel.description}
                         </p>
-                        <div className="flex items-center space-x-2 text-xs text-gray-400">
+                          <div className="flex items-center space-x-2 text-xs text-gray-400">
                           <span>{channel.memberCount || 0} a'zo</span>
-                          {channel.onlineMembersCount !== undefined && (
+                          {channelMemberships[channel.id]?.isMember && channel.onlineMembersCount !== undefined && (
                             <>
                               <span>вЂў</span>
                               <span className="text-green-600">

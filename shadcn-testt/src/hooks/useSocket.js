@@ -162,8 +162,16 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
           window.dispatchEvent(new CustomEvent('memberRemoved', { detail: data }));
         }
         if (data.type === "memberLeft") {
-          console.log('рџљЄ Member left:', data.data);
           window.dispatchEvent(new CustomEvent('memberLeft', { detail: data }));
+          const { groupId, userId: leftUserId } = data.data || {};
+          if (groupId && leftUserId && parseInt(leftUserId) === parseInt(userId)) {
+            window.dispatchEvent(new CustomEvent('chat-deleted', { detail: {
+              chatType: 'group',
+              chatId: groupId,
+              deletedBy: leftUserId,
+              timestamp: new Date().toISOString()
+            }}));
+          }
         }
         if (data.type === "groupInfoUpdated") {
           console.log('рџ“ќ Group info updated:', data.data);
@@ -172,6 +180,16 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
         if (data.type === "groupDeleted") {
           console.log('рџ—‘пёЏ Group deleted:', data.data);
           window.dispatchEvent(new CustomEvent('groupDeleted', { detail: data }));
+          // Normalize to sidebar/chat listeners
+          const { groupId, deletedBy } = data.data || {};
+          if (groupId) {
+            window.dispatchEvent(new CustomEvent('chat-deleted', { detail: {
+              chatType: 'group',
+              chatId: groupId,
+              deletedBy: deletedBy,
+              timestamp: new Date().toISOString()
+            }}));
+          }
         }
         if (data.type === "groupInfoUpdated") {
           console.log('рџ“ќ Group info updated via WebSocket:', data.data);

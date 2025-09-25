@@ -32,13 +32,13 @@ const GroupLeaveModal = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose} >
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isCreator ? (
               <>
-                <Trash2 className="w-5 h-5 text-red-500" />
+                <Trash2 className="w-5 h-5 text-re  d-500" />
                 Guruhni o'chirish
               </>
             ) : (

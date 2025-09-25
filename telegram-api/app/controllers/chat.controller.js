@@ -148,6 +148,7 @@ exports.sendMessage = async (req, res) => {
       chatId: message.chatId,
       replyToMessageId: message.replyToMessageId,
       timestamp: message.timestamp,
+      isEdited: !!message.isEdited,
       user: {
         id: user.id,
         username: user.username,
@@ -402,7 +403,7 @@ exports.getMessages = async (req, res) => {
       chatId: msg.chatId,
       replyToMessageId: msg.replyToMessageId,
       timestamp: msg.timestamp,
-      isEdited: msg.isEdited,
+      isEdited: !!msg.isEdited,
       user: msg.user,
       reads: msg.reads
     }));
@@ -437,7 +438,7 @@ exports.updateMessage = async (req, res) => {
         .status(404)
         .json({ message: "Message not found or not owned by user" });
     }
-    await message.update({ content: content.trim() });
+    await message.update({ content: content.trim(), isEdited: true });
     const user = await User.findByPk(req.userId);
     const messageWithUser = {
       id: message.id,
@@ -453,6 +454,7 @@ exports.updateMessage = async (req, res) => {
         lastName: user.lastName,
         avatar: user.avatar,
       },
+      isEdited: true,
     };
     req.app.locals.wss.clients.forEach((client) => {
       const clientUserId = parseInt(client.userId);
