@@ -336,6 +336,16 @@ const ChatSidebar = ({
     window.addEventListener("user-status-update-global", handleGlobalUserStatusUpdate);
     window.addEventListener("group-online-count-updated", handleGroupOnlineCountUpdate);
     window.addEventListener("group-info-updated", handleGroupInfoUpdate);
+    const handleChannelCreated = async () => {
+      const token = storage.getPersistent("chatToken");
+      if (!token) return;
+      try {
+        await fetchChannels(token);
+      } catch (err) {
+        console.error("Error refreshing channels after create:", err);
+      }
+    };
+    window.addEventListener("channel-created", handleChannelCreated);
     return () => {
       window.removeEventListener("group-created", handleGroupCreated);
       window.removeEventListener("group-joined", handleGroupJoined);
@@ -348,6 +358,7 @@ const ChatSidebar = ({
       window.removeEventListener("user-status-update-global", handleGlobalUserStatusUpdate);
       window.removeEventListener("group-online-count-updated", handleGroupOnlineCountUpdate);
       window.removeEventListener("group-info-updated", handleGroupInfoUpdate);
+      window.removeEventListener("channel-created", handleChannelCreated);
     };
   }, [user]);
   const fetchUserData = async () => {
@@ -935,6 +946,9 @@ const ChatSidebar = ({
                         }
                       >
                         <Avatar className="w-10 h-10 mr-3">
+                          {channel?.avatar && (
+                            <AvatarImage src={toAbsoluteUrl(channel.avatar)} alt="kanal" />
+                          )}
                           <AvatarFallback className="bg-purple-100 text-purple-600">
                             <Hash className="w-5 h-5" />
                           </AvatarFallback>
@@ -1200,21 +1214,20 @@ const ChatSidebar = ({
                   ))}
               </div>
             )}
-            {(activeTab === "all" || activeTab === "channels") &&
-              channels.length > 0 && (
-                <div className="p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-700">
-                      Kanallar
-                    </h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.dispatchEvent(new Event("open-create-channel"))}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                  </div>
+            {(activeTab === "all" || activeTab === "channels") && (
+              <div className="p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Kanallar
+                  </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => window.dispatchEvent(new Event("open-create-channel"))}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+                </div>
                   {channels.map((channel) => (
                     <div
                       key={channel.id}
@@ -1227,6 +1240,9 @@ const ChatSidebar = ({
                       onClick={() => selectChat(channel, "channel")}
                     >
                       <Avatar className="w-10 h-10 mr-3">
+                        {channel?.avatar && (
+                          <AvatarImage src={toAbsoluteUrl(channel.avatar)} alt="kanal" />
+                        )}
                         <AvatarFallback className="bg-purple-100 text-purple-600">
                           <Hash className="w-5 h-5" />
                         </AvatarFallback>
@@ -1245,14 +1261,6 @@ const ChatSidebar = ({
                         </p>
                           <div className="flex items-center space-x-2 text-xs text-gray-400">
                           <span>{channel.memberCount || 0} a'zo</span>
-                          {channelMemberships[channel.id]?.isMember && channel.onlineMembersCount !== undefined && (
-                            <>
-                              <span>вЂў</span>
-                              <span className="text-green-600">
-                                {channel.onlineMembersCount} onlayn
-                              </span>
-                            </>
-                          )}
                         </div>
                       </div>
                       {}
@@ -1294,8 +1302,9 @@ const ChatSidebar = ({
                       )}
                     </div>
                   ))}
-                </div>
-              )}
+                
+              </div>
+            )}
           </>
         )}
       </ScrollArea>

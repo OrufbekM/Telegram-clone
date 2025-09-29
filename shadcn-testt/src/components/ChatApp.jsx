@@ -188,6 +188,14 @@ const ChatApp = () => {
       window.removeEventListener("open-create-channel", openCreateChannel);
   }, []);
   useEffect(() => {
+    // After a channel is created, reload chats so it appears in the list
+    const handleChannelCreated = async () => {
+      await loadAllChats();
+    };
+    window.addEventListener('channel-created', handleChannelCreated);
+    return () => window.removeEventListener('channel-created', handleChannelCreated);
+  }, [user]);
+  useEffect(() => {
     const handleCurrentChatUpdate = (event) => {
       const { chatId, updates } = event.detail;
       if (currentChat && currentChat.id === chatId) {

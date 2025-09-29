@@ -14,8 +14,13 @@ const CreateChannelDialog = ({ open, onOpenChange, onChannelCreated }) => {
     e.preventDefault()
     try {
       const token = storage.getPersistent('chatToken')
-      await createChannel(token, form)
+      const data = await createChannel(token, form)
+      const createdChannel = data?.channel || null
       toast({ title: 'Kanal yaratildi!', description: `${form.name} kanali yaratildi` })
+      const event = createdChannel
+        ? new CustomEvent('channel-created', { detail: { channel: createdChannel } })
+        : new Event('channel-created')
+      window.dispatchEvent(event)
       setForm({ name: '', description: '', isPrivate: false })
       onOpenChange(false)
       onChannelCreated && onChannelCreated()

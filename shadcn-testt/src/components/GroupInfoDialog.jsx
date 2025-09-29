@@ -172,6 +172,9 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
         setCurrentUserRole(statusData.role);
         const initialOnlineCount = statusData.group.onlineMembersCount || 0;
         setOnlineCount(initialOnlineCount);
+        try {
+          window.dispatchEvent(new CustomEvent('group-online-count-updated', { detail: { groupId, onlineCount: initialOnlineCount } }));
+        } catch {}
         console.log('вњ… Group details set:', statusData.group);
         console.log('рџЋ­ User role:', statusData.role);
         console.log('рџ‘Ґ Initial online count:', initialOnlineCount);
@@ -192,6 +195,9 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
             const serverOnlineCount = membersData.onlineMembers || 0;
             console.log('рџџў Setting online count to:', serverOnlineCount);
             setOnlineCount(serverOnlineCount);
+            try {
+              window.dispatchEvent(new CustomEvent('group-online-count-updated', { detail: { groupId, onlineCount: serverOnlineCount } }));
+            } catch {}
             console.log('вњ… Members set successfully:', membersData.members.length, 'members');
             console.log('рџ‘Ґ Server online count:', serverOnlineCount);
           } else {

@@ -126,6 +126,8 @@ exports.getChannelStatus = async (req, res) => {
           type: channel.type,
           isPrivate: channel.isPrivate,
           memberCount: channel.memberCount,
+          createdAt: channel.createdAt,
+          creator: channel.creator,
         },
       });
     }
@@ -141,10 +143,96 @@ exports.getChannelStatus = async (req, res) => {
         type: channel.type,
         isPrivate: channel.isPrivate,
         memberCount: channel.memberCount,
+        createdAt: channel.createdAt,
+        creator: channel.creator,
       },
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Error getting channel status." });
+  }
+};
+
+// Get channel members (reuse groupMembers schema)
+exports.getChannelMembers = async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const exists = await Group.findByPk(channelId);
+    if (!exists || exists.type !== 'channel') {
+      return res.status(404).json({ message: 'Channel not found!' });
+    }
+    const members = await GroupMember.findAll({
+      where: { groupId: channelId, isActive: true },
+      include: [{ model: User, as: 'User', attributes: ['id','username','firstName','lastName','avatar','isOnline','lastSeen'] }],
+      order: [["role", "ASC"], ["joinedAt", "ASC"]]
+    });
+    const formatted = members
+      .filter(m => m.User)
+      .map(m => ({
+        id: m.User.id,
+        username: m.User.username,
+        firstName: m.User.firstName,
+        lastName: m.User.lastName,
+        avatar: m.User.avatar,
+        isOnline: m.User.isOnline,
+        lastSeen: m.User.lastSeen,
+        role: m.role,
+        joinedAt: m.joinedAt
+      }));
+    const onlineCount = formatted.filter(m => m.isOnline).length;
+    res.status(200).json({ members: formatted, totalMembers: formatted.length, onlineMembers: onlineCount });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Error getting channel members.' });
+  }
+};
+
+// Update channel info (creator or admin)
+exports.updateChannelInfo = async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const { name, description, avatar } = req.body;
+    const requester = await GroupMember.findOne({ where: { groupId: channelId, userId: req.userId } });
+    if (!requester || (requester.role !== 'admin' && requester.role !== 'creator')) {
+      return res.status(403).json({ message: 'You do not have permission to update channel info!' });
+    }
+    const channel = await Group.findByPk(channelId);
+    if (!channel || channel.type !== 'channel') {
+      return res.status(404).json({ message: 'Channel not found!' });
+    }
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    await channel.update(updateData);
+    res.status(200).json({
+      message: 'Channel information updated successfully!',
+      channel: {
+        id: channel.id,
+        name: channel.name,
+        description: channel.description,
+        avatar: channel.avatar,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Error updating channel info.' });
+  }
+};
+
+// Revoke admin (only creator)
+exports.revokeAdmin = async (req, res) => {
+  try {
+    const { channelId, targetUserId } = req.body;
+    const requester = await GroupMember.findOne({ where: { groupId: channelId, userId: req.userId } });
+    if (!requester || requester.role !== 'creator') {
+      return res.status(403).json({ message: 'Only creator can revoke admin!' });
+    }
+    const target = await GroupMember.findOne({ where: { groupId: channelId, userId: targetUserId } });
+    if (!target) return res.status(404).json({ message: 'Target is not a member.' });
+    if (target.role === 'creator') return res.status(400).json({ message: 'Creator cannot be changed.' });
+    if (target.role === 'member') return res.status(400).json({ message: 'User is already a regular member.' });
+    await target.update({ role: 'member' });
+    res.status(200).json({ message: 'Admin revoked.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Error revoking admin.' });
   }
 };
 

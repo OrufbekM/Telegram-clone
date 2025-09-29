@@ -22,9 +22,9 @@ exports.sendMessage = async (req, res) => {
       });
     }
 
-    if (!["private", "group"].includes(chatType)) {
+    if (!["private", "group", "channel"].includes(chatType)) {
       return res.status(400).json({
-        message: "Chat type must be 'private' or 'group'!",
+        message: "Chat type must be 'private', 'group' or 'channel'!",
       });
     }
 
@@ -42,15 +42,19 @@ exports.sendMessage = async (req, res) => {
       if (!Number.isNaN(parsed)) replyId = parsed;
     }
 
-    if (chatType === "group") {
+    if (chatType === "group" || chatType === "channel") {
       const groupMember = await db.groupMembers.findOne({
         where: { groupId: chatIdInt, userId: req.userId },
       });
 
       if (!groupMember) {
         return res.status(403).json({
-          message: "You are not a member of this group!",
+          message: chatType === 'channel' ? "You are not a member of this channel!" : "You are not a member of this group!",
         });
+      }
+      // For channels, only creator/admins can post
+      if (chatType === 'channel' && !["creator", "admin"].includes(groupMember.role)) {
+        return res.status(403).json({ message: "Only channel admins can post messages!" });
       }
     } else if (chatType === "private") {
       const privateChat = await PrivateChat.findOne({
@@ -332,13 +336,13 @@ exports.getMessages = async (req, res) => {
     if (Number.isNaN(chatIdInt)) {
       return res.status(400).json({ message: "chatId must be a number" });
     }
-    if (chatType === "group") {
+    if (chatType === "group" || chatType === "channel") {
       const groupMember = await db.groupMembers.findOne({
         where: { groupId: chatIdInt, userId: req.userId },
       });
       if (!groupMember) {
         return res.status(403).json({
-          message: "You are not a member of this group!",
+          message: chatType === 'channel' ? "You are not a member of this channel!" : "You are not a member of this group!",
         });
       }
     } else if (chatType === "private") {
@@ -511,13 +515,13 @@ exports.markMessagesAsRead = async (req, res) => {
     if (Number.isNaN(chatIdInt)) {
       return res.status(400).json({ message: "chatId must be a number" });
     }
-    if (chatType === "group") {
+    if (chatType === "group" || chatType === "channel") {
       const groupMember = await db.groupMembers.findOne({
         where: { groupId: chatIdInt, userId: req.userId },
       });
       if (!groupMember) {
         return res.status(403).json({
-          message: "You are not a member of this group!",
+          message: chatType === 'channel' ? "You are not a member of this channel!" : "You are not a member of this group!",
         });
       }
     } else if (chatType === "private") {

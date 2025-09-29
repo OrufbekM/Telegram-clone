@@ -13,9 +13,12 @@ const EntityInfoDialog = ({
   if (!entity || !entity.data) return null;
   
   const { type, data } = entity;
-  const title = type === "group" ? data.name || "Guruh" : data.username || "Foydalanuvchi";
+  const title =
+    type === "group" || type === "channel"
+      ? data.name || (type === "group" ? "Guruh" : "Kanal")
+      : data.username || "Foydalanuvchi";
   const subtitle =
-    type === "group"
+    type === "group" || type === "channel"
       ? data.description || ""
       : data.firstName && data.lastName
       ? `${data.firstName} ${data.lastName}`
@@ -50,11 +53,11 @@ const EntityInfoDialog = ({
           </div>
         </div>
         {}
-        {type === "group" && (
+        {(type === "group" || type === "channel") && (
           <div className="flex gap-2">
             {!data.isMember && (
               <Button className="flex-1" onClick={() => onJoin?.(data.id)}>
-                Qo'shilish
+                {type === "channel" ? "Obuna bo'lish" : "Qo'shilish"}
               </Button>
             )}
             {canLeave && (
@@ -63,7 +66,7 @@ const EntityInfoDialog = ({
                 className="flex-1"
                 onClick={() => onLeave?.(data.id)}
               >
-                Chiqish
+                {type === "channel" ? "Chiqish" : "Chiqish"}
               </Button>
             )}
             {canEdit && (
@@ -75,6 +78,14 @@ const EntityInfoDialog = ({
                 Tahrirlash
               </Button>
             )}
+          </div>
+        )}
+        {type === "channel" && (
+          <div className="mt-3 text-sm text-gray-600">
+            <div>
+              <span className="font-medium">Obunachilar:</span>
+              <span className="ml-2">{data.memberCount || 0}</span>
+            </div>
           </div>
         )}
       </DialogContent>

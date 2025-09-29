@@ -24,6 +24,7 @@ import {
   Edit2,
   Trash2,
   Info,
+  Eye,
 } from "lucide-react";
 import { useGroups } from "../hooks/useGroups";
 import { useChat } from "../hooks/useChat";
@@ -130,88 +131,90 @@ const ChatArea = ({
   const closeContextMenu = () =>
     setContextMenu({ visible: false, x: 0, y: 0, message: null });
 
-
   // Voice recording functions
   const startVoiceRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
-      
+
       // Set up audio context for volume analysis
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const audioContext = new (window.AudioContext ||
+        window.webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
-      
+
       analyser.fftSize = 256;
       analyser.smoothingTimeConstant = 0.8;
       source.connect(analyser);
-      
+
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
-      
+
       audioChunksRef.current = [];
       setVolumeLevels([]);
-      
+
       // Volume monitoring function
       const monitorVolume = () => {
         if (!analyserRef.current || !isRecording) return;
-        
+
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(dataArray);
-        
+
         // Calculate average volume
-        const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+        const average =
+          dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
         const normalizedVolume = Math.min(average / 128, 1); // Normalize to 0-1
-        
-        setVolumeLevels(prev => [...prev, normalizedVolume]);
-        
+
+        setVolumeLevels((prev) => [...prev, normalizedVolume]);
+
         if (isRecording) {
           requestAnimationFrame(monitorVolume);
         }
       };
-      
+
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
-      
+
       recorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
         setAudioBlob(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-        
+        stream.getTracks().forEach((track) => track.stop());
+
         // Clean up audio context
         if (audioContextRef.current) {
           audioContextRef.current.close();
         }
-        
+
         // Force a re-render to ensure send button is enabled
         setTimeout(() => {
           // This timeout ensures the audioBlob state is properly set
         }, 100);
       };
-      
+
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
       setRecordingTime(0);
-      
+
       // Start volume monitoring
       monitorVolume();
-      
+
       // Clear any existing timer
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
       }
-      
+
       // Start timer
       const timer = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
       setRecordingTimer(timer);
       recordingTimerRef.current = timer;
-      
     } catch (error) {
       toast({
         title: "Xatolik!",
@@ -222,10 +225,10 @@ const ChatArea = ({
   };
 
   const stopVoiceRecording = () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
       mediaRecorder.stop();
     }
-    
+
     // Clear timer using both state and ref
     if (recordingTimer) {
       clearInterval(recordingTimer);
@@ -235,7 +238,7 @@ const ChatArea = ({
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
     }
-    
+
     setIsRecording(false);
     // Don't reset recordingTime here - keep it for display and sending
   };
@@ -245,7 +248,6 @@ const ChatArea = ({
     setAudioBlob(null);
     setRecordingTime(0);
   };
-
 
   useEffect(() => {
     return () => {
@@ -257,42 +259,42 @@ const ChatArea = ({
 
   const sendVoiceMessage = async () => {
     if (!audioBlob) {
-      console.error('No audio blob available');
+      console.error("No audio blob available");
       return;
     }
-    
+
     try {
       const token = storage.getPersistent("chatToken");
       if (!token) {
-        console.error('No chat token found');
+        console.error("No chat token found");
         return;
       }
 
       const reader = new FileReader();
       reader.onloadend = async () => {
         try {
-          const base64Audio = reader.result.split(',')[1];
-          
+          const base64Audio = reader.result.split(",")[1];
+
           const messageData = {
-            content: "",  
+            content: "",
             voiceMessage: {
               data: base64Audio,
               duration: recordingTime,
-              mimeType: audioBlob.type || 'audio/webm',
-              volumeLevels: volumeLevels // Add volume levels to message data
+              mimeType: audioBlob.type || "audio/webm",
+              volumeLevels: volumeLevels, // Add volume levels to message data
             },
             chatType,
             chatId: currentChat.id,
           };
 
-          console.log('Sending voice message:', {
-            duration: recordingTime, 
+          console.log("Sending voice message:", {
+            duration: recordingTime,
             mimeType: audioBlob.type,
-            dataLength: base64Audio.length 
+            dataLength: base64Audio.length,
           });
 
           const result = await sendMessage(token, messageData);
-          
+
           // Reset voice recording state after successful send
           setAudioBlob(null);
           setRecordingTime(0);
@@ -337,18 +339,21 @@ const ChatArea = ({
             });
           }
         } catch (apiError) {
-          console.error('API Error:', apiError);
+          console.error("API Error:", apiError);
           toast({
             title: "Xatolik!",
-            description: apiError?.response?.data?.message || apiError.message || "Ovozli xabarni yuborishda xatolik",
+            description:
+              apiError?.response?.data?.message ||
+              apiError.message ||
+              "Ovozli xabarni yuborishda xatolik",
             variant: "destructive",
           });
           // Don't reset state on error so user can try again
         }
       };
-      
+
       reader.onerror = (error) => {
-        console.error('FileReader error:', error);
+        console.error("FileReader error:", error);
         toast({
           title: "Xatolik!",
           description: "Audio faylni o'qishda xatolik",
@@ -356,14 +361,16 @@ const ChatArea = ({
         });
         // Don't reset state on error
       };
-      
+
       reader.readAsDataURL(audioBlob);
-      
     } catch (error) {
-      console.error('Voice message error:', error);
+      console.error("Voice message error:", error);
       toast({
         title: "Xatolik!",
-        description: error?.response?.data?.message || error.message || "Ovozli xabar yuborishda xatolik",
+        description:
+          error?.response?.data?.message ||
+          error.message ||
+          "Ovozli xabar yuborishda xatolik",
         variant: "destructive",
       });
       // Don't reset state on error so user can try again
@@ -374,19 +381,19 @@ const ChatArea = ({
   const formatRecordingTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Get message container style based on message type
   const getMessageContainerStyle = (msg, isSelf) => {
     // Image + Text combo - special styling
     if (msg.image && msg.content) {
-      return 'p-0 rounded-2xl'; // Container for image+text combo
+      return "p-0 rounded-2xl"; // Container for image+text combo
     }
-    
+
     // Voice messages, standalone images, and text messages have no container background
     // (text messages now handle their own styling, images and voice have no background)
-    return 'p-0'; // Minimal container styling
+    return "p-0"; // Minimal container styling
   };
 
   // Handle image upload completion with caption support
@@ -476,7 +483,7 @@ const ChatArea = ({
 
       setShowGroupDeleteModal(false);
       setDeleteForEveryone(false);
-      
+
       // Trigger chat deletion event
       window.dispatchEvent(
         new CustomEvent("chat-deleted", {
@@ -531,40 +538,60 @@ const ChatArea = ({
     }
   };
 
+  // Handle channel leave
+  const handleChannelLeave = async () => {
+    try {
+      const token = storage.getPersistent("chatToken");
+      if (!token) return;
+      await leaveChannel(token, currentChat.id);
+      toast({ title: "Kanaldan chiqdingiz!", description: "Endi kanal xabarlarini ko'rmaysiz" });
+      // Clear current chat if we left the opened channel
+      onDeleteChat?.({ id: currentChat.id }, 'channel');
+      setShowMenu(false);
+    } catch (error) {
+      toast({ title: "Xatolik!", description: error?.message || "Kanaldan chiqishda xatolik", variant: "destructive" });
+    }
+  };
+
   // Real-time WebSocket connection and event listeners
   useEffect(() => {
     if (socket && currentChat) {
       // Join chat room for real-time updates
       if (socket.send && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-          type: 'join-chat',
-          chatId: currentChat.id,
-          chatType: chatType,
-          userId: user?.id
-        }));
+        socket.send(
+          JSON.stringify({
+            type: "join-chat",
+            chatId: currentChat.id,
+            chatType: chatType,
+            userId: user?.id,
+          })
+        );
       }
 
       // Listen for new messages
       const handleNewMessage = (event) => {
         const messageData = event.detail;
-        console.log('New message received:', messageData);
-        
+        console.log("New message received:", messageData);
+
         // Only add if message belongs to current chat
-        if (messageData.chatId === currentChat.id && messageData.chatType === chatType) {
-          setMessages(prev => {
+        if (
+          messageData.chatId === currentChat.id &&
+          messageData.chatType === chatType
+        ) {
+          setMessages((prev) => {
             // Check if message already exists to avoid duplicates
-            const exists = prev.some(msg => msg.id === messageData.id);
+            const exists = prev.some((msg) => msg.id === messageData.id);
             if (exists) return prev;
-            
+
             const updatedMessages = [...prev, messageData];
-            
+
             // Update cache
             const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
             storage.setSession(cacheKey, JSON.stringify(updatedMessages));
-            
+
             return updatedMessages;
           });
-          
+
           // Auto-scroll to bottom for new messages if user is at bottom
           setTimeout(() => {
             const scrollArea = scrollAreaRef.current?.querySelector(
@@ -572,8 +599,9 @@ const ChatArea = ({
             );
             if (scrollArea) {
               const { scrollTop, scrollHeight, clientHeight } = scrollArea;
-              const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-              
+              const isNearBottom =
+                scrollHeight - scrollTop - clientHeight < 100;
+
               if (isNearBottom || messageData.user.id === user?.id) {
                 scrollArea.scrollTo({
                   top: scrollArea.scrollHeight,
@@ -582,18 +610,20 @@ const ChatArea = ({
               } else {
                 // Show jump button and increment new messages count
                 setShowJumpButton(true);
-                setNewMessagesCount(prev => prev + 1);
+                setNewMessagesCount((prev) => prev + 1);
               }
             }
           }, 50);
-          
+
           // Mark as read if user is active and message is not from self
           if (messageData.user.id !== user?.id && document.hasFocus()) {
             markMessageAsRead(messageData.id);
           } else if (messageData.user.id !== user?.id) {
             // Even if not in focus, we should still track that the message exists
             // This will be marked as read when the user scrolls to it or focuses the window
-            console.log('New message received but not in focus, will mark as read when focused');
+            console.log(
+              "New message received but not in focus, will mark as read when focused"
+            );
           }
         }
       };
@@ -601,61 +631,65 @@ const ChatArea = ({
       // Listen for message read status updates
       const handleMessageRead = (event) => {
         const data = event.detail;
-        console.log('Message read status update:', data);
-        
+        console.log("Message read status update:", data);
+
         // Handle single message read update
         if (data.messageId) {
-          setMessageReadStatus(prev => ({
+          setMessageReadStatus((prev) => ({
             ...prev,
-            [data.messageId]: data.readers || []
+            [data.messageId]: data.readers || [],
           }));
         }
-        
+
         // Handle multiple messages read update (bulk read)
         if (data.messageIds && Array.isArray(data.messageIds)) {
           const reader = data.reader;
           const readAt = data.timestamp;
-          
-          setMessageReadStatus(prev => {
+
+          setMessageReadStatus((prev) => {
             const updated = { ...prev };
-            data.messageIds.forEach(msgId => {
+            data.messageIds.forEach((msgId) => {
               const currentReaders = updated[msgId] || [];
-              const alreadyRead = currentReaders.some(r => r.id === reader.id);
-              
+              const alreadyRead = currentReaders.some(
+                (r) => r.id === reader.id
+              );
+
               if (!alreadyRead) {
                 updated[msgId] = [
                   ...currentReaders,
                   {
                     id: reader.id,
                     username: reader.username,
-                    readAt: readAt
-                  }
+                    readAt: readAt,
+                  },
                 ];
               }
             });
             return updated;
           });
         }
-        
+
         // Handle messageReadReceipt events (from server)
         if (data.type === "messageReadReceipt" && data.messageIds) {
           const reader = data.reader;
           const readAt = data.timestamp;
-          
-          setMessageReadStatus(prev => {
+
+          setMessageReadStatus((prev) => {
             const updated = { ...prev };
-            data.messageIds.forEach(msgId => {
+            data.messageIds.forEach((msgId) => {
               const currentReaders = updated[msgId] || [];
-              const alreadyRead = currentReaders.some(r => r.id === reader.id);
-              
+              const alreadyRead = currentReaders.some(
+                (r) => r.id === reader.id
+              );
+
               if (!alreadyRead) {
                 updated[msgId] = [
                   ...currentReaders,
                   {
                     id: reader.id,
                     username: reader.username,
-                    readAt: readAt
-                  }
+                    readAt: readAt,
+                  },
                 ];
               }
             });
@@ -667,19 +701,19 @@ const ChatArea = ({
       // Listen for message edit updates
       const handleMessageEdit = (event) => {
         const data = event.detail;
-        console.log('Message edited:', data);
+        console.log("Message edited:", data);
         if (data.chatId === currentChat.id) {
-          setMessages(prev => {
-            const updatedMessages = prev.map(msg => 
-              msg.id === data.messageId 
+          setMessages((prev) => {
+            const updatedMessages = prev.map((msg) =>
+              msg.id === data.messageId
                 ? { ...msg, content: data.content, isEdited: true }
                 : msg
             );
-            
+
             // Update cache immediately
             const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
             storage.setSession(cacheKey, JSON.stringify(updatedMessages));
-            
+
             return updatedMessages;
           });
         }
@@ -688,15 +722,17 @@ const ChatArea = ({
       // Listen for message delete updates
       const handleMessageDelete = (event) => {
         const data = event.detail;
-        console.log('Message deleted:', data);
+        console.log("Message deleted:", data);
         if (data.chatId === currentChat.id) {
-          setMessages(prev => {
-            const updatedMessages = prev.filter(msg => msg.id !== data.messageId);
-            
+          setMessages((prev) => {
+            const updatedMessages = prev.filter(
+              (msg) => msg.id !== data.messageId
+            );
+
             // Update cache immediately with filtered messages
             const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
             storage.setSession(cacheKey, JSON.stringify(updatedMessages));
-            
+
             return updatedMessages;
           });
         }
@@ -707,61 +743,69 @@ const ChatArea = ({
         const data = event.detail;
         if (data.chatId === currentChat.id && data.userId !== user?.id) {
           // Handle typing indicator updates
-          console.log('User typing:', data);
+          console.log("User typing:", data);
         }
       };
 
-      // Listen for user online status updates  
+      // Listen for user online status updates
       const handleUserStatusUpdate = (event) => {
         const data = event.detail;
         // Update user online status for private chats
-        if (chatType === 'private' && currentChat.user?.id === data.userId) {
+        if (chatType === "private" && currentChat.user?.id === data.userId) {
           // This will be handled by parent component managing userStatuses
-          console.log('User status updated for private chat:', data);
+          console.log("User status updated for private chat:", data);
         }
       };
 
       // Listen for chat history cleared
       const handleChatHistoryCleared = (event) => {
         const data = event.detail;
-        console.log('Chat history cleared:', data);
+        console.log("Chat history cleared:", data);
         if (data.chatId === currentChat.id && data.chatType === chatType) {
           setMessages([]);
           setMessageReadStatus({});
-          
+
           // Clear cache
           const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
           storage.removeSession(cacheKey);
         }
       };
-      
+
       // Register window event listeners (these match what useSocket dispatches)
-      window.addEventListener('new-message', handleNewMessage);
-      window.addEventListener('message-read', handleMessageRead);
-      window.addEventListener('message-edited', handleMessageEdit);
-      window.addEventListener('message-deleted', handleMessageDelete);
-      window.addEventListener('typing-update', handleTypingUpdate);
-      window.addEventListener('user-status-update', handleUserStatusUpdate);
-      window.addEventListener('chat-history-cleared', handleChatHistoryCleared);
+      window.addEventListener("new-message", handleNewMessage);
+      window.addEventListener("message-read", handleMessageRead);
+      window.addEventListener("message-edited", handleMessageEdit);
+      window.addEventListener("message-deleted", handleMessageDelete);
+      window.addEventListener("typing-update", handleTypingUpdate);
+      window.addEventListener("user-status-update", handleUserStatusUpdate);
+      window.addEventListener("chat-history-cleared", handleChatHistoryCleared);
 
       // Cleanup function
       return () => {
-        window.removeEventListener('new-message', handleNewMessage);
-        window.removeEventListener('message-read', handleMessageRead);
-        window.removeEventListener('message-edited', handleMessageEdit);
-        window.removeEventListener('message-deleted', handleMessageDelete);
-        window.removeEventListener('typing-update', handleTypingUpdate);
-        window.removeEventListener('user-status-update', handleUserStatusUpdate);
-        window.removeEventListener('chat-history-cleared', handleChatHistoryCleared);
-        
+        window.removeEventListener("new-message", handleNewMessage);
+        window.removeEventListener("message-read", handleMessageRead);
+        window.removeEventListener("message-edited", handleMessageEdit);
+        window.removeEventListener("message-deleted", handleMessageDelete);
+        window.removeEventListener("typing-update", handleTypingUpdate);
+        window.removeEventListener(
+          "user-status-update",
+          handleUserStatusUpdate
+        );
+        window.removeEventListener(
+          "chat-history-cleared",
+          handleChatHistoryCleared
+        );
+
         // Leave chat room
         if (socket.send && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            type: 'leave-chat',
-            chatId: currentChat.id,
-            chatType: chatType,
-            userId: user?.id
-          }));
+          socket.send(
+            JSON.stringify({
+              type: "leave-chat",
+              chatId: currentChat.id,
+              chatType: chatType,
+              userId: user?.id,
+            })
+          );
         }
       };
     }
@@ -771,12 +815,14 @@ const ChatArea = ({
   useEffect(() => {
     if (currentChat && user?.id && messages.length > 0) {
       // Mark unread messages as read when user opens chat
-      const unreadMessages = messages.filter(msg => 
-        msg.user.id !== user.id && !messageReadStatus[msg.id]?.some(reader => reader.id === user.id)
+      const unreadMessages = messages.filter(
+        (msg) =>
+          msg.user.id !== user.id &&
+          !messageReadStatus[msg.id]?.some((reader) => reader.id === user.id)
       );
-      
+
       if (unreadMessages.length > 0) {
-        unreadMessages.forEach(msg => {
+        unreadMessages.forEach((msg) => {
           markMessageAsRead(msg.id);
         });
       }
@@ -807,34 +853,41 @@ const ChatArea = ({
     const scrollArea = scrollAreaRef.current?.querySelector(
       "[data-radix-scroll-area-viewport]"
     );
-    
+
     if (!scrollArea) return;
-    
+
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = scrollArea;
       const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-      
+
       // Hide jump button if user scrolls to bottom
       if (isNearBottom) {
         setShowJumpButton(false);
         setNewMessagesCount(0);
-        
+
         // Mark visible messages as read
-        const visibleMessages = messages.filter(msg => 
-          msg.user.id !== user?.id && !messageReadStatus[msg.id]?.some(reader => reader.id === user?.id)
+        const visibleMessages = messages.filter(
+          (msg) =>
+            msg.user.id !== user?.id &&
+            !messageReadStatus[msg.id]?.some((reader) => reader.id === user?.id)
         );
-        
-        visibleMessages.forEach(msg => {
+
+        visibleMessages.forEach((msg) => {
           markMessageAsRead(msg.id);
         });
-        
+
         // Also mark as read on server for better consistency
         if (visibleMessages.length > 0) {
-          const messageIds = visibleMessages.map(msg => msg.id);
+          const messageIds = visibleMessages.map((msg) => msg.id);
           const token = storage.getPersistent("chatToken");
           if (token) {
-            markMessagesAsRead(token, chatType, currentChat.id, messageIds).catch(err => {
-              console.error('Error marking messages as read on server:', err);
+            markMessagesAsRead(
+              token,
+              chatType,
+              currentChat.id,
+              messageIds
+            ).catch((err) => {
+              console.error("Error marking messages as read on server:", err);
             });
           }
         }
@@ -846,39 +899,44 @@ const ChatArea = ({
         }
       }
     };
-    
-    scrollArea.addEventListener('scroll', handleScroll);
-    return () => scrollArea.removeEventListener('scroll', handleScroll);
+
+    scrollArea.addEventListener("scroll", handleScroll);
+    return () => scrollArea.removeEventListener("scroll", handleScroll);
   }, [messages, messageReadStatus, newMessagesCount, user?.id]);
 
   // Add all necessary useEffects and event handlers
   useEffect(() => {
     const hide = (e) => {
       // Don't close menu if click is inside the menu
-      if (e.target.closest('.chat-header-menu') || e.target.closest('.chat-header-menu-toggle')) {
+      if (
+        e.target.closest(".chat-header-menu") ||
+        e.target.closest(".chat-header-menu-toggle")
+      ) {
         return;
       }
       closeContextMenu();
       setShowMenu(false);
     };
-    
+
     const handleWindowFocus = () => {
       // When window gains focus, mark visible messages as read
       if (currentChat && user?.id && messages.length > 0) {
-        const visibleMessages = messages.filter(msg => 
-          msg.user.id !== user.id && !messageReadStatus[msg.id]?.some(reader => reader.id === user.id)
+        const visibleMessages = messages.filter(
+          (msg) =>
+            msg.user.id !== user.id &&
+            !messageReadStatus[msg.id]?.some((reader) => reader.id === user.id)
         );
-        
-        visibleMessages.forEach(msg => {
+
+        visibleMessages.forEach((msg) => {
           markMessageAsRead(msg.id);
         });
       }
     };
-    
+
     window.addEventListener("click", hide);
     window.addEventListener("scroll", hide);
     window.addEventListener("focus", handleWindowFocus);
-    
+
     return () => {
       window.removeEventListener("click", hide);
       window.removeEventListener("scroll", hide);
@@ -894,7 +952,7 @@ const ChatArea = ({
       setMessageViewStatus({});
       setEditingMessageId(null);
       setEditingContent("");
-      
+
       loadMessages();
       if (chatType === "group") {
         checkGroupMembership();
@@ -909,10 +967,10 @@ const ChatArea = ({
     try {
       const token = storage.getPersistent("chatToken");
       if (!token) return;
-      
+
       // Call API to delete message
       await deleteMessage(token, message.id);
-      
+
       // Update local state and cache
       setMessages((prev) => {
         const updatedMessages = prev.filter((msg) => msg.id !== message.id);
@@ -920,13 +978,13 @@ const ChatArea = ({
         storage.setSession(cacheKey, JSON.stringify(updatedMessages));
         return updatedMessages;
       });
-      
+
       toast({
         title: "Xabar o'chirildi",
         description: "Xabar muvaffaqiyatli o'chirildi",
         variant: "default",
       });
-      
+
       closeContextMenu();
     } catch (error) {
       toast({
@@ -1129,15 +1187,15 @@ const ChatArea = ({
       const data = await fetchMessages(token, chatType, currentChat.id);
       const freshMessages = data.messages || [];
       setMessages(freshMessages);
-      
+
       // Initialize read status from messages
       const readStatusData = {};
-      freshMessages.forEach(msg => {
+      freshMessages.forEach((msg) => {
         if (msg.reads && msg.reads.length > 0) {
-          readStatusData[msg.id] = msg.reads.map(read => ({
+          readStatusData[msg.id] = msg.reads.map((read) => ({
             id: read.reader?.id || read.id,
             username: read.reader?.username || read.username,
-            readAt: read.readAt
+            readAt: read.readAt,
           }));
         }
       });
@@ -1155,54 +1213,57 @@ const ChatArea = ({
     }
   };
 
-  // Mark message as read function  
+  // Mark message as read function
   const markMessageAsRead = async (messageId) => {
     try {
       const token = storage.getPersistent("chatToken");
       if (!token || !socket || !messageId) return;
-      
+
       // Check if already read by current user
       const currentReaders = messageReadStatus[messageId] || [];
-      const alreadyRead = currentReaders.some(reader => reader.id === user?.id);
+      const alreadyRead = currentReaders.some(
+        (reader) => reader.id === user?.id
+      );
       if (alreadyRead) return;
-      
+
       // Send read status to server via WebSocket
       if (socket.send && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-          type: 'messageViewed',
-          messageId,
-          chatId: currentChat.id,
-          chatType: chatType,
-          userId: user?.id,
-          timestamp: new Date().toISOString()
-        }));
+        socket.send(
+          JSON.stringify({
+            type: "messageViewed",
+            messageId,
+            chatId: currentChat.id,
+            chatType: chatType,
+            userId: user?.id,
+            timestamp: new Date().toISOString(),
+          })
+        );
       }
-      
+
       // Update local read status optimistically
-      setMessageReadStatus(prev => ({
+      setMessageReadStatus((prev) => ({
         ...prev,
         [messageId]: [
           ...currentReaders,
           {
             id: user.id,
             username: user.username,
-            readAt: new Date().toISOString()
-          }
-        ]
+            readAt: new Date().toISOString(),
+          },
+        ],
       }));
-      
+
       // Also mark as read on the server
       try {
         await markMessagesAsRead(token, chatType, currentChat.id, [messageId]);
       } catch (error) {
-        console.error('Error marking message as read on server:', error);
+        console.error("Error marking message as read on server:", error);
       }
-      
     } catch (error) {
-      console.error('Error marking message as read:', error);
+      console.error("Error marking message as read:", error);
     }
   };
-  
+
   const jumpToBottom = () => {
     const scrollArea = scrollAreaRef.current?.querySelector(
       "[data-radix-scroll-area-viewport]"
@@ -1238,7 +1299,8 @@ const ChatArea = ({
   }
 
   const isGroupMember = groupStatus?.isMember;
-  const isChannelWriter = channelStatus?.role === "creator" || channelStatus?.role === "admin";
+  const isChannelWriter =
+    channelStatus?.role === "creator" || channelStatus?.role === "admin";
 
   return (
     <div className="flex-1 flex flex-col bg-white h-full">
@@ -1247,12 +1309,21 @@ const ChatArea = ({
           <div
             className="cursor-pointer  rounded-lg p-2 -m-2 transition-colors"
             onClick={() => {
-              console.log('🎯 Header clicked - chatType:', chatType, 'currentChat.id:', currentChat?.id);
+              console.log(
+                "🎯 Header clicked - chatType:",
+                chatType,
+                "currentChat.id:",
+                currentChat?.id
+              );
               if (chatType === "group" || chatType === "channel") {
-                console.log('📋 Opening GroupInfoDialog for:', chatType, currentChat?.id);
+                console.log(
+                  "📋 Opening GroupInfoDialog for:",
+                  chatType,
+                  currentChat?.id
+                );
                 setShowGroupInfo(true);
               } else {
-                console.log('👤 Opening user info for private chat');
+                console.log("👤 Opening user info for private chat");
                 window.dispatchEvent(
                   new CustomEvent("open-user-info", {
                     detail: currentChat.user,
@@ -1260,15 +1331,21 @@ const ChatArea = ({
                 );
               }
             }}
-            title={chatType === "group" ? "Guruh ma'lumotlarini ko'rish" : chatType === "channel" ? "Kanal ma'lumotlarini ko'rish" : "Foydalanuvchi ma'lumotlari"}
-          >
+            title={
+              chatType === "group"
+                ? "Guruh ma'lumotlarini ko'rish"
+                : chatType === "channel"
+                ? "Kanal ma'lumotlarini ko'rish"
+                : "Foydalanuvchi ma'lumotlari"
+            }>
             <Avatar className="w-10 h-10">
-              {(chatType === "group" || chatType === "channel") && currentChat?.avatar && (
-                <AvatarImage
-                  src={toAbsoluteUrl(currentChat.avatar)}
-                  alt={chatType === "channel" ? "kanal rasmi" : "guruh rasmi"}
-                />
-              )}
+              {(chatType === "group" || chatType === "channel") &&
+                currentChat?.avatar && (
+                  <AvatarImage
+                    src={toAbsoluteUrl(currentChat.avatar)}
+                    alt={chatType === "channel" ? "kanal rasmi" : "guruh rasmi"}
+                  />
+                )}
               {chatType === "private" && currentChat.user?.avatar && (
                 <AvatarImage
                   src={toAbsoluteUrl(currentChat.user.avatar)}
@@ -1290,12 +1367,21 @@ const ChatArea = ({
           <div
             className="cursor-pointer flex-1 rounded-lg pl-1  pr-5 m-2 transition-colors"
             onClick={() => {
-              console.log('🎯 Header name clicked - chatType:', chatType, 'currentChat.id:', currentChat?.id);
+              console.log(
+                "🎯 Header name clicked - chatType:",
+                chatType,
+                "currentChat.id:",
+                currentChat?.id
+              );
               if (chatType === "group" || chatType === "channel") {
-                console.log('📋 Opening GroupInfoDialog for:', chatType, currentChat?.id);
+                console.log(
+                  "📋 Opening GroupInfoDialog for:",
+                  chatType,
+                  currentChat?.id
+                );
                 setShowGroupInfo(true);
               } else {
-                console.log('👤 Opening user info for private chat');
+                console.log("👤 Opening user info for private chat");
                 window.dispatchEvent(
                   new CustomEvent("open-user-info", {
                     detail: currentChat.user,
@@ -1303,8 +1389,13 @@ const ChatArea = ({
                 );
               }
             }}
-            title={chatType === "group" ? "Guruh ma'lumotlarini ko'rish" : chatType === "channel" ? "Kanal ma'lumotlarini ko'rish" : "Foydalanuvchi ma'lumotlari"}
-          >
+            title={
+              chatType === "group"
+                ? "Guruh ma'lumotlarini ko'rish"
+                : chatType === "channel"
+                ? "Kanal ma'lumotlarini ko'rish"
+                : "Foydalanuvchi ma'lumotlari"
+            }>
             <h2 className="text-lg font-semibold text-gray-900">
               {chatType === "group" || chatType === "channel"
                 ? currentChat.name
@@ -1313,14 +1404,15 @@ const ChatArea = ({
             {(chatType === "group" || chatType === "channel") && (
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <span>{currentChat.memberCount || 0} a'zo</span>
-                {isGroupMember && currentChat.onlineMembersCount !== undefined && (
-                  <>
-                    <span>•</span>
-                    <span className="text-green-600">
-                      {currentChat.onlineMembersCount} onlayn
-                    </span>
-                  </>
-                )}
+                {isGroupMember &&
+                  currentChat.onlineMembersCount !== undefined && (
+                    <>
+                      <span>•</span>
+                      <span className="text-green-600">
+                        {currentChat.onlineMembersCount} onlayn
+                      </span>
+                    </>
+                  )}
               </div>
             )}
             {/* Private chat online status */}
@@ -1353,8 +1445,11 @@ const ChatArea = ({
               size="icon"
               className="h-8 w-8"
               onClick={() => setShowGroupInfo(true)}
-              title={chatType === "channel" ? "Kanal ma'lumotlari" : "Guruh ma'lumotlari"}
-            >
+              title={
+                chatType === "channel"
+                  ? "Kanal ma'lumotlari"
+                  : "Guruh ma'lumotlari"
+              }>
               <Info className="h-4 w-4" />
             </Button>
           )}
@@ -1365,26 +1460,42 @@ const ChatArea = ({
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-            >
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}>
               <MoreVertical className="h-4 w-4" />
             </Button>
 
             {/* Dropdown menu */}
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 chat-header-menu">
-                <button
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onClearHistory) {
-                      onClearHistory();
-                    }
-                    setShowMenu(false);
-                  }}
-                >
-                   Tarixni tozalash
-                </button>
+              <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 chat-header-menu">
+                {/* Clear history: only for group/channel admins */}
+                {(chatType === 'group' && isGroupMember) || (chatType === 'channel' && isChannelWriter) ? (
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onClearHistory) {
+                        onClearHistory();
+                      }
+                      setShowMenu(false);
+                    }}>
+                    Tarixni tozalash
+                  </button>
+                ) : null}
+
+                {/* Leave channel */}
+                {chatType === 'channel' && channelStatus?.isMember && (
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleChannelLeave();
+                    }}>
+                    Kanaldan chiqish
+                  </button>
+                )}
 
                 {/* Delete chat option */}
                 {/* Private chat delete option */}
@@ -1397,9 +1508,8 @@ const ChatArea = ({
                         onDeleteChat();
                       }
                       setShowMenu(false);
-                    }}
-                  >
-                    <Trash2 width={20} />  Chatni o'chirish
+                    }}>
+                    <Trash2 width={20} /> Chatni o'chirish
                   </button>
                 )}
 
@@ -1413,20 +1523,18 @@ const ChatArea = ({
                           e.stopPropagation();
                           setShowGroupDeleteModal(true);
                           setShowMenu(false);
-                        }}
-                      >
+                        }}>
                         O'chirish va chiqish
                       </button>
                     )}
-                    
+
                     <button
                       className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowGroupLeaveModal(true);
                         setShowMenu(false);
-                      }}
-                    >
+                      }}>
                       Guruhdan chiqish
                     </button>
                   </>
@@ -1459,48 +1567,57 @@ const ChatArea = ({
 
             {/* Messages */}
             {messages.map((msg, index) => {
-              const isSelf = msg.user?.id === user?.id;
+              // In channels, all messages should appear on one side (outgoing style)
+              const isSelf =
+                chatType === "channel" ? true : msg.user?.id === user?.id;
               const isEditing = editingMessageId === msg.id;
               const messageReaders = messageReadStatus[msg.id] || [];
               const isRead = messageReaders.length > 0;
-              
+
               return (
                 <div
                   key={msg.id || index}
-                  className={`flex mb-4 ${isSelf ? 'justify-end' : 'justify-start'}`}
+                  className={`flex mb-4 ${
+                    isSelf ? "justify-end" : "justify-start"
+                  }`}
                   onContextMenu={(e) => handleContextMenu(e, msg)}
                   data-message-id={msg.id}
-                  data-message-user-id={msg.user.id}
-                >
+                  data-message-user-id={msg.user.id}>
                   {!isSelf && (
                     <Avatar className="w-8 h-8 mr-2 self-end">
                       {msg.user?.avatar && (
-                        <AvatarImage src={toAbsoluteUrl(msg.user.avatar)} alt="avatar" />
+                        <AvatarImage
+                          src={toAbsoluteUrl(msg.user.avatar)}
+                          alt="avatar"
+                        />
                       )}
                       <AvatarFallback className="bg-gray-300 text-gray-700">
-                        {msg.user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                        {msg.user?.username?.charAt(0)?.toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
                   )}
-                  
+
                   <div className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl">
                     {!isSelf && (
                       <div className="text-xs font-medium text-gray-600 mb-1">
                         {msg.user?.username}
                       </div>
                     )}
-                    
+
                     {isEditing ? (
-                      <div className={`p-3 rounded-lg ${isSelf ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>
+                      <div
+                        className={`p-3 rounded-lg ${
+                          isSelf ? "bg-blue-500 text-white" : "bg-gray-200"
+                        }`}>
                         <Input
                           value={editingContent}
                           onChange={(e) => setEditingContent(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                            if (e.key === "Enter") {
                               commitEditMessage();
-                            } else if (e.key === 'Escape') {
+                            } else if (e.key === "Escape") {
                               setEditingMessageId(null);
-                              setEditingContent('');
+                              setEditingContent("");
                             }
                           }}
                           className="bg-white text-black"
@@ -1510,31 +1627,50 @@ const ChatArea = ({
                           <Button size="sm" onClick={commitEditMessage}>
                             Saqlash
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => {
-                            setEditingMessageId(null);
-                            setEditingContent('');
-                          }}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingMessageId(null);
+                              setEditingContent("");
+                            }}>
                             Bekor qilish
                           </Button>
                         </div>
                       </div>
                     ) : (
-                      <div className={`${getMessageContainerStyle(msg, isSelf)} ${msg.image && msg.content ? 'overflow-hidden shadow-sm' : ''}`}>
+                      <div
+                        className={`${getMessageContainerStyle(msg, isSelf)} ${
+                          msg.image && msg.content
+                            ? "overflow-hidden shadow-sm"
+                            : ""
+                        }`}>
                         {/* Image rendering */}
                         {msg.image && (
-                          <div className={`relative ${msg.content ? '' : 'overflow-hidden rounded-2xl shadow-sm'}`}>
+                          <div
+                            className={`relative ${
+                              msg.content
+                                ? ""
+                                : "overflow-hidden rounded-2xl shadow-sm"
+                            }`}>
                             <img
                               src={toAbsoluteUrl(msg.image)}
                               alt="Yuborilgan rasm"
                               className={`max-w-full cursor-pointer hover:opacity-90 transition-opacity w-full block ${
-                                msg.content ? 'rounded-t-2xl' : 'rounded-2xl'
+                                msg.content ? "rounded-t-2xl" : "rounded-2xl"
                               }`}
-                              style={{ maxWidth: '300px', maxHeight: '300px', display: 'block' }}
-                              onClick={() => window.open(toAbsoluteUrl(msg.image), '_blank')}
+                              style={{
+                                maxWidth: "300px",
+                                maxHeight: "300px",
+                                display: "block",
+                              }}
+                              onClick={() =>
+                                window.open(toAbsoluteUrl(msg.image), "_blank")
+                              }
                             />
                           </div>
                         )}
-                        
+
                         {/* Voice message rendering */}
                         {msg.voiceMessage && (
                           <VoiceMessagePlayer
@@ -1547,125 +1683,218 @@ const ChatArea = ({
                             chatType={chatType}
                           />
                         )}
-                        
+
                         {/* Text content */}
                         {msg.content && !msg.image && !msg.voiceMessage && (
-                          <div className={`text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere p-3 pb-1 rounded-lg ${
-                            isSelf ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'
-                          }`}>
+                          <div
+                            className={`text-sm break-words text-left whitespace-pre-wrap overflow-wrap-anywhere p-3 pb-1 rounded-lg ${
+                              chatType === "channel"
+                                ? "bg-gray-200 text-gray-900"
+                                : isSelf
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-200 text-gray-900"
+                            }`}>
                             {msg.content}
                             {/* Footer for text-only messages */}
                             <div className="flex items-center justify-end gap-1 mt-2">
-                              <span className={`text-xs  ${
-                                isSelf ? 'text-blue-200' : 'text-gray-500'
-                              }`}>
-                                {msg.isEdited && 'edited • '}
-                                {new Date(msg.timestamp).toLocaleTimeString('uz-UZ', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
+                             
                               {/* Channel view count */}
-                              {chatType === 'channel' && (
-                                <span className={`text-xs ${isSelf ? 'text-blue-200' : 'text-gray-500'}`} title="Ko'rilganlar soni">
-                                  {Array.isArray(messageReaders) ? messageReaders.length : 0}
-                                </span>
+                              {chatType === "channel" && (
+                                <div className="flex items-center gap-1">
+                                  <Eye className="w-4 h-4 text-gray-500" />
+                                  <span
+                                    className={`text-xs text-gray-500`}
+                                    title="Ko'rilganlar soni">
+                                   
+                                    {Array.isArray(messageReaders)
+                                      ? messageReaders.length
+                                      : 0}
+                                  </span>
+                                </div>
                               )}
-                              
-                              {isSelf && (
+                               <span
+                                className={`text-xs  ${
+                                  chatType === "channel"
+                                    ? "text-gray-500"
+                                    : isSelf
+                                    ? "text-blue-200"
+                                    : "text-gray-500"
+                                }`}>
+                                {msg.isEdited && "edited • "}
+                                {new Date(msg.timestamp).toLocaleTimeString(
+                                  "uz-UZ",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </span>
+
+                              {isSelf && chatType !== 'channel' && (
                                 <div>
                                   {isRead ? (
-                                    <CheckCheck className="w-4 h-4 text-blue-300" title={`${messageReaders.length} kishi o'qidi`} />
+                                    <CheckCheck
+                                      className="w-4 h-4 text-blue-300"
+                                      title={`${messageReaders.length} kishi o'qidi`}
+                                    />
                                   ) : (
-                                    <Check className="w-4 h-4 text-blue-300" title="Yuborildi" />
+                                    <Check
+                                      className="w-4 h-4 text-blue-300"
+                                      title="Yuborildi"
+                                    />
                                   )}
                                 </div>
                               )}
                             </div>
                           </div>
                         )}
-                        
+
                         {/* Text content for image+text combinations */}
                         {msg.content && msg.image && (
-                          <div className={`text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere p-3 ${
-                            isSelf ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'
-                          } rounded-b-2xl`}>
+                          <div
+                            className={`text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere p-3 ${
+                              chatType === "channel"
+                                ? "bg-gray-200 text-gray-900"
+                                : isSelf
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-200 text-gray-900"
+                            } rounded-b-2xl`}>
                             {msg.content}
                             {/* Footer inside the caption bubble to avoid white background */}
                             <div className="flex items-center justify-end gap-1 mt-2">
-                              <span className={`text-xs  ${
-                                isSelf ? 'text-blue-200' : 'text-gray-600'
-                              }`}>
-                                {msg.isEdited && 'edited • '}
-                                {new Date(msg.timestamp).toLocaleTimeString('uz-UZ', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
+                              
                               {/* Channel view count */}
-                              {chatType === 'channel' && (
-                                <span className={`text-xs ${isSelf ? 'text-blue-200' : 'text-gray-600'}`} title="Ko'rilganlar soni">
-                                  {Array.isArray(messageReaders) ? messageReaders.length : 0}
-                                </span>
+                              {chatType === "channel" && (
+                                <div className="flex items-center gap-1">
+                                  <Eye className="w-4 h-4 text-gray-500" />
+                                  <span
+                                    className={`text-xs text-gray-500`}
+                                    title="Ko'rilganlar soni">
+                                   
+                                    {Array.isArray(messageReaders)
+                                      ? messageReaders.length
+                                      : 0}
+                                  </span>
+                                </div>
                               )}
-                              {isSelf && (
+                              <span
+                                className={`text-xs  ${
+                                  chatType === "channel"
+                                    ? "text-gray-600"
+                                    : isSelf
+                                    ? "text-blue-200"
+                                    : "text-gray-600"
+                                }`}>
+                                {msg.isEdited && "edited • "}
+                                {new Date(msg.timestamp).toLocaleTimeString(
+                                  "uz-UZ",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </span>
+                              {isSelf && chatType !== 'channel' && (
                                 <div>
                                   {isRead ? (
-                                    <CheckCheck className="w-4 h-4 text-blue-300" title={`${messageReaders.length} kishi o'qidi`} />
+                                    <CheckCheck
+                                      className="w-4 h-4 text-blue-300"
+                                      title={`${messageReaders.length} kishi o'qidi`}
+                                    />
                                   ) : (
-                                    <Check className="w-4 h-4 text-blue-300" title="Yuborildi" />
+                                    <Check
+                                      className="w-4 h-4 text-blue-300"
+                                      title="Yuborildi"
+                                    />
                                   )}
                                 </div>
                               )}
                             </div>
                           </div>
                         )}
-                        
+
                         {/* Text content for voice+text combinations */}
                         {msg.content && msg.voiceMessage && (
-                          <div className={`text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere p-3 rounded-lg mt-2 ${
-                            isSelf ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'
-                          }`}>
+                          <div
+                            className={`text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere p-3 rounded-lg mt-2 ${
+                              chatType === "channel"
+                                ? "bg-gray-200 text-gray-900"
+                                : isSelf
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-200 text-gray-900"
+                            }`}>
                             {msg.content}
                           </div>
                         )}
-                        
+
                         {/* Message footer for image-only (overlay). Text-only and image+text have inline footers; voice handled in component */}
                         {!msg.voiceMessage && msg.image && !msg.content && (
-                          <div className={`flex items-center justify-end gap-1 mt-1 ${
-                            msg.image && msg.content ? 'px-3 pb-2' : 
-                            msg.image && !msg.content ? 'absolute bottom-2 right-2 bg-black bg-opacity-50 rounded px-2 py-1' :
-                            'px-2 py-1'
-                          }`}>
-                            <span className={`text-xs ${
-                              msg.image && !msg.content ? 'text-white' : 
-                              isSelf ? 'text-blue-200' : 'text-gray-500'
+                          <div
+                            className={`flex items-center justify-end gap-1 mt-1 ${
+                              msg.image && msg.content
+                                ? "px-3 pb-2"
+                                : msg.image && !msg.content
+                                ? "absolute bottom-2 right-2 bg-black bg-opacity-50 rounded px-2 py-1"
+                                : "px-2 py-1"
                             }`}>
-                              {msg.isEdited && 'edited • '}
-                              {new Date(msg.timestamp).toLocaleTimeString('uz-UZ', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                            <span
+                              className={`text-xs ${
+                                msg.image && !msg.content
+                                  ? "text-white"
+                                  : chatType === "channel"
+                                  ? "text-gray-500"
+                                  : isSelf
+                                  ? "text-blue-200"
+                                  : "text-gray-500"
+                              }`}>
+                              {msg.isEdited && "edited • "}
+                              {new Date(msg.timestamp).toLocaleTimeString(
+                                "uz-UZ",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
                             </span>
                             {/* Channel view count */}
-                            {chatType === 'channel' && (
-                              <span className={`text-xs ${msg.image && !msg.content ? 'text-white' : (isSelf ? 'text-blue-200' : 'text-gray-400')}`} title="Ko'rilganlar soni">
-                                {Array.isArray(messageReaders) ? messageReaders.length : 0}
+                            {chatType === "channel" && (
+                              <span
+                                className={`text-xs ${
+                                  msg.image && !msg.content
+                                    ? "text-white"
+                                    : "text-gray-400"
+                                }`}
+                                title="Ko'rilganlar soni">
+                                {Array.isArray(messageReaders)
+                                  ? messageReaders.length
+                                  : 0}
                               </span>
                             )}
-                            
-                            {isSelf && (
+
+                            {isSelf && chatType !== 'channel' && (
                               <div>
                                 {isRead ? (
-                                  <CheckCheck className={`w-4 h-4 ${
-                                    msg.image && !msg.content ? 'text-white' : 
-                                    isSelf ? 'text-blue-300' : 'text-gray-400'
-                                  }`} title={`${messageReaders.length} kishi o'qidi`} />
+                                  <CheckCheck
+                                    className={`w-4 h-4 ${
+                                      msg.image && !msg.content
+                                        ? "text-white"
+                                        : isSelf
+                                        ? "text-blue-300"
+                                        : "text-gray-400"
+                                    }`}
+                                    title={`${messageReaders.length} `}
+                                  />
                                 ) : (
-                                  <Check className={`w-4 h-4 ${
-                                    msg.image && !msg.content ? 'text-white' : 
-                                    isSelf ? 'text-blue-300' : 'text-gray-400'
-                                  }`} title="Yuborildi" />
+                                  <Check
+                                    className={`w-4 h-4 ${
+                                      msg.image && !msg.content
+                                        ? "text-white"
+                                        : isSelf
+                                        ? "text-blue-300"
+                                        : "text-gray-400"
+                                    }`}
+                                    title="Yuborildi"
+                                  />
                                 )}
                               </div>
                             )}
@@ -1700,8 +1929,7 @@ const ChatArea = ({
             <Button
               size="icon"
               className="h-10 w-10 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600 text-white"
-              onClick={jumpToBottom}
-            >
+              onClick={jumpToBottom}>
               <ChevronDown className="h-5 w-5" />
               {newMessagesCount > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -1717,13 +1945,10 @@ const ChatArea = ({
       {chatType === "group" && !isGroupMember && (
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <div className="text-center">
-            <p className="text-gray-600 mb-3">
-              Bu guruhga a'zo bo'lmagan siz
-            </p>
+            <p className="text-gray-600 mb-3">Bu guruhga a'zo bo'lmagan siz</p>
             <Button
               onClick={handleJoinGroup}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
-            >
+              className="bg-blue-500 hover:bg-blue-600 text-white">
               Guruhga qo'shilish
             </Button>
           </div>
@@ -1731,26 +1956,31 @@ const ChatArea = ({
       )}
 
       {/* Channel join section */}
-      {chatType === "channel" && !(channelStatus?.isMember) && (
+      {chatType === "channel" && !channelStatus?.isMember && (
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <div className="text-center">
-            <p className="text-gray-600 mb-3">
-              Bu kanalga a'zo emassiz
-            </p>
+            <p className="text-gray-600 mb-3">Bu kanalga a'zo emassiz</p>
             <Button
               onClick={async () => {
                 try {
                   const token = storage.getPersistent("chatToken");
                   if (!token) return;
                   await joinChannel(token, currentChat.id);
-                  toast({ title: "Kanalga qo'shildingiz!", description: "Endi kanal xabarlarini ko'rasiz" });
+                  toast({
+                    title: "Kanalga qo'shildingiz!",
+                    description: "Endi kanal xabarlarini ko'rasiz",
+                  });
                   checkChannelMembership();
                 } catch (error) {
-                  toast({ title: "Xatolik!", description: error?.message || "Kanalga qo'shilishda xatolik", variant: "destructive" });
+                  toast({
+                    title: "Xatolik!",
+                    description:
+                      error?.message || "Kanalga qo'shilishda xatolik",
+                    variant: "destructive",
+                  });
                 }
               }}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
-            >
+              className="bg-blue-500 hover:bg-blue-600 text-white">
               Kanalga qo'shilish
             </Button>
           </div>
@@ -1758,7 +1988,9 @@ const ChatArea = ({
       )}
 
       {/* Message input */}
-      {(chatType === "private" || isGroupMember || (chatType === "channel" && isChannelWriter)) && (
+      {(chatType === "private" ||
+        isGroupMember ||
+        (chatType === "channel" && isChannelWriter)) && (
         <div className="p-4 border-t border-gray-200 bg-white">
           <div className="flex items-end space-x-2">
             {/* Emoji Picker */}
@@ -1791,8 +2023,7 @@ const ChatArea = ({
                   size="icon"
                   className="h-8 w-8 text-gray-500 hover:text-red-600"
                   onClick={cancelVoiceRecording}
-                  title="Bekor qilish"
-                >
+                  title="Bekor qilish">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -1811,8 +2042,7 @@ const ChatArea = ({
                   size="icon"
                   className="h-8 w-8 text-gray-500 hover:text-red-600"
                   onClick={cancelVoiceRecording}
-                  title="Bekor qilish"
-                >
+                  title="Bekor qilish">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -1850,8 +2080,7 @@ const ChatArea = ({
                   variant="ghost"
                   size="icon"
                   className="h-10 w-10 flex-shrink-0"
-                  onClick={() => setShowImageUpload(true)}
-                >
+                  onClick={() => setShowImageUpload(true)}>
                   <Paperclip className="h-5 w-5" />
                 </Button>
               </>
@@ -1864,11 +2093,10 @@ const ChatArea = ({
                 onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
                 variant="ghost"
                 className={`h-10 w-10 p-0 flex-shrink-0 rounded-full ${
-                  isRecording 
-                    ? "bg-red-100 hover:bg-red-200 text-red-600" 
+                  isRecording
+                    ? "bg-red-100 hover:bg-red-200 text-red-600"
                     : "hover:bg-gray-100"
-                }`}
-              >
+                }`}>
                 <Mic className="h-5 w-5" />
               </Button>
 
@@ -1884,11 +2112,10 @@ const ChatArea = ({
                   }
                 }}
                 disabled={
-                  (!message?.trim() && !audioBlob) || 
+                  (!message?.trim() && !audioBlob) ||
                   (editingMessageId && !editingContent?.trim())
                 }
-                className="h-10 w-10 p-0 flex-shrink-0 rounded-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300"
-              >
+                className="h-10 w-10 p-0 flex-shrink-0 rounded-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300">
                 <Send className="h-4 w-4 text-white" />
               </Button>
             </div>
@@ -1901,23 +2128,20 @@ const ChatArea = ({
         <div
           className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
           style={{
-            left: contextMenu.x,
-            top: contextMenu.y,
-          }}
-        >
+            left: Math.min(Math.max(8, contextMenu.x), window.innerWidth - 105),
+            top: Math.min(Math.max(8, contextMenu.y), window.innerHeight - 100),
+          }}>
           {contextMenu.message?.user?.id === user?.id && (
             <>
               <button
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
-                onClick={() => startEditingMessage(contextMenu.message)}
-              >
+                onClick={() => startEditingMessage(contextMenu.message)}>
                 <Edit2 className="h-4 w-4 mr-2" />
                 Tahrirlash
               </button>
               <button
                 className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center"
-                onClick={() => handleDeleteMessage(contextMenu.message)}
-              >
+                onClick={() => handleDeleteMessage(contextMenu.message)}>
                 <Trash2 className="h-4 w-4 mr-2" />
                 O'chirish
               </button>
@@ -1939,12 +2163,11 @@ const ChatArea = ({
       {/* Info Dialogs */}
       {showGroupInfo && (
         <>
-          {console.log('🔍 Rendering GroupInfoDialog - showGroupInfo:', showGroupInfo, 'groupId:', currentChat?.id, 'chatType:', chatType)}
-          {(chatType === 'group') ? (
+          {chatType === "group" ? (
             <GroupInfoDialog
               isOpen={showGroupInfo}
               onClose={() => {
-                console.log('🚪 Closing GroupInfoDialog');
+                console.log("🚪 Closing GroupInfoDialog");
                 setShowGroupInfo(false);
               }}
               groupId={currentChat?.id}
@@ -1953,7 +2176,7 @@ const ChatArea = ({
             <ChannelInfoDialog
               isOpen={showGroupInfo}
               onClose={() => {
-                console.log('🚪 Closing ChannelInfoDialog');
+                console.log("🚪 Closing ChannelInfoDialog");
                 setShowGroupInfo(false);
               }}
               channelId={currentChat?.id}
@@ -1962,93 +2185,90 @@ const ChatArea = ({
         </>
       )}
 
-    {/* Group Delete Modal */}
-    {showGroupDeleteModal && (
-      <div className="fixed inset-0 bg-gray-100/50 bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-          <div className="flex items-center mb-4">
-            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
-              <span className="text-red-600 font-semibold text-lg">
-                {currentChat?.name?.charAt(0) || 'G'}
-              </span>
+      {/* Group Delete Modal */}
+      {showGroupDeleteModal && (
+        <div className="fixed inset-0 bg-gray-100/50 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                <span className="text-red-600 font-semibold text-lg">
+                  {currentChat?.name?.charAt(0) || "G"}
+                </span>
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-900">
+                  {currentChat?.name || "Guruh"}
+                </h3>
+              </div>
             </div>
-            <div>
-              <h3 className="font-medium text-gray-900">{currentChat?.name || 'Guruh'}</h3>
-            </div>
-          </div>
-          
-          <p className="text-gray-600 mb-4">
-            Bu guruhdan chiqmoqchimisiz?
-          </p>
-          
-          <div className="flex items-center mb-6">
-            <input
-              type="checkbox"
-              id="deleteForEveryone"
-              className="mr-2"
-              onChange={(e) => setDeleteForEveryone(e.target.checked)}
-            />
-            <label htmlFor="deleteForEveryone" className="text-sm text-gray-700">
-              Hamma uchun o'chirish
-            </label>
-          </div>
-          
-          <div className="flex space-x-3">
-            <button
-              className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
-              onClick={() => setShowGroupDeleteModal(false)}
-            >
-              Bekor qilish
-            </button>
-            <button
-              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              onClick={handleGroupDelete}
-            >
-              Chiqish
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
 
-    {showGroupLeaveModal && (
-      <div className="fixed inset-0 bg-gray-100/50 bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-          <div className="flex items-center mb-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-              <span className="text-blue-600 font-semibold text-lg">
-                {currentChat?.name?.charAt(0) || 'G'}
-              </span>
+            <p className="text-gray-600 mb-4">Bu guruhdan chiqmoqchimisiz?</p>
+
+            <div className="flex items-center mb-6">
+              <input
+                type="checkbox"
+                id="deleteForEveryone"
+                className="mr-2"
+                onChange={(e) => setDeleteForEveryone(e.target.checked)}
+              />
+              <label
+                htmlFor="deleteForEveryone"
+                className="text-sm text-gray-700">
+                Hamma uchun o'chirish
+              </label>
             </div>
-            <div>
-              <h3 className="font-medium text-gray-900">{currentChat?.name || 'Guruh'}</h3>
+
+            <div className="flex space-x-3">
+              <button
+                className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                onClick={() => setShowGroupDeleteModal(false)}>
+                Bekor qilish
+              </button>
+              <button
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                onClick={handleGroupDelete}>
+                Chiqish
+              </button>
             </div>
-          </div>
-          
-          <p className="text-gray-600 mb-6">
-            Bu guruhdan chiqmoqchimisiz?
-          </p>
-          
-          <div className="flex space-x-3">
-            <button
-              className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
-              onClick={() => setShowGroupLeaveModal(false)}
-            >
-              Bekor qilish
-            </button>
-            <button
-              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              onClick={handleGroupLeave}
-            >
-              Chiqish
-            </button>
           </div>
         </div>
-      </div>
-    )}
-  </div>
+      )}
+
+      {showGroupLeaveModal && (
+        <div className="fixed inset-0 bg-gray-100/50 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                <span className="text-blue-600 font-semibold text-lg">
+                  {currentChat?.name?.charAt(0) || "G"}
+                </span>
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-900">
+                  {currentChat?.name || "Guruh"}
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-gray-600 mb-6">Bu guruhdan chiqmoqchimisiz?</p>
+
+            <div className="flex space-x-3">
+              <button
+                className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                onClick={() => setShowGroupLeaveModal(false)}>
+                Bekor qilish
+              </button>
+              <button
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                onClick={handleGroupLeave}>
+                Chiqish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
 export default ChatArea;
-

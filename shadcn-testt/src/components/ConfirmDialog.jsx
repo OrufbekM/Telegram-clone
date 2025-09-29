@@ -1,6 +1,7 @@
 ﻿import React from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog'
 import { Button } from './ui/button'
+
 const ConfirmDialog = ({ 
   open, 
   onOpenChange, 
@@ -9,7 +10,7 @@ const ConfirmDialog = ({
   confirmText = "Ha", 
   cancelText = "Yo'q", 
   onConfirm, 
-  variant = "default" // "default" | "destructive"
+  variant = "default" 
 }) => {
   const handleConfirm = () => {
     if (onConfirm) {

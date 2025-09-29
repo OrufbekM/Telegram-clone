@@ -16,6 +16,9 @@ module.exports = function (app) {
   app.post("/api/channels/:channelId/leave", [verifyToken], controller.leaveChannel);
   app.get("/api/channels/:channelId/status", [verifyToken], controller.getChannelStatus);
   app.post("/api/channels/grant-admin", [verifyToken], controller.grantAdmin);
+  app.post("/api/channels/revoke-admin", [verifyToken], controller.revokeAdmin);
+  app.get("/api/channels/:channelId/members", [verifyToken], controller.getChannelMembers);
+  app.put("/api/channels/:channelId/info", [verifyToken], controller.updateChannelInfo);
 };
 
 
