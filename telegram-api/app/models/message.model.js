@@ -14,6 +14,11 @@ module.exports = (sequelize, Sequelize) => {
       allowNull: true,
       comment: 'Rasm fayl yo\'li'
     },
+    images: {
+      type: Sequelize.TEXT, // JSON.stringify([...])
+      allowNull: true,
+      comment: 'Bir nechta rasm url larining JSON massivi'
+    },
     voiceMessage: {
       type: Sequelize.STRING,
       allowNull: true,
@@ -33,7 +38,7 @@ module.exports = (sequelize, Sequelize) => {
       }
     },
     chatType: {
-      type: Sequelize.ENUM('private', 'group'),
+      type: Sequelize.ENUM('private', 'group', 'channel'),
       defaultValue: 'private'
     },
     chatId: {

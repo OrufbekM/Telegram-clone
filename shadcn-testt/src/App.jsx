@@ -9,6 +9,7 @@ import { useToast } from './hooks/use-toast'
 import { useConfirm } from './hooks/useConfirm'
 import { initAlertService } from './services/alertService'
 import './App.css'
+
 function RequireAuth({ children }) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('chatToken') : null
   const location = useLocation()
@@ -17,6 +18,7 @@ function RequireAuth({ children }) {
   }
   return children
 }
+
 function ValidChatRoute() {
   const { chatId } = useParams()
   if (!/^\d+$/.test(chatId)) {
@@ -24,6 +26,7 @@ function ValidChatRoute() {
   }
   return <ChatApp />
 }
+
 function App() {
   const { toasts, dismiss, toast } = useToast()
   const { confirm, confirmState, closeConfirm, handleConfirm } = useConfirm()
@@ -55,4 +58,3 @@ function App() {
   )
 }
 export default App
-

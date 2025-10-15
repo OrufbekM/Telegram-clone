@@ -39,6 +39,7 @@ import OnlineStatusIndicator from "./OnlineStatusIndicator";
 import VoiceMessagePlayer from "./VoiceMessagePlayer";
 import { useTyping } from "../hooks/useTyping";
 import { storage } from "../utils/storageUtils";
+import { ImagePreview } from "./ImagePreview";
 
 const ChatArea = ({
   currentChat,
@@ -74,6 +75,7 @@ const ChatArea = ({
   const analyserRef = useRef(null); // Audio analyser node
   const [showGroupDeleteModal, setShowGroupDeleteModal] = useState(false); // Group delete modal
   const [showGroupLeaveModal, setShowGroupLeaveModal] = useState(false); // Group leave modal
+  const [imagePreviewData, setImagePreviewData] = useState(null); // Image preview data
 
   const {
     sendMessage,
@@ -103,11 +105,9 @@ const ChatArea = ({
     return url.startsWith("http") ? url : `${API_URL}${url}`;
   };
 
-  // Initialize typing functionality
   const { typingUsers, hasTypingUsers, typingText, startTyping, stopTyping } =
     useTyping(socket, chatType, currentChat?.id, user?.id);
 
-  // Context menu state
   const [contextMenu, setContextMenu] = useState({
     visible: false,
     x: 0,
@@ -257,6 +257,19 @@ const ChatArea = ({
     };
   }, []);
 
+  // Add effect to handle image preview events
+  useEffect(() => {
+    const handleImagePreview = (event) => {
+      setImagePreviewData(event.detail);
+    };
+
+    window.addEventListener("open-image-preview", handleImagePreview);
+    
+    return () => {
+      window.removeEventListener("open-image-preview", handleImagePreview);
+    };
+  }, []);
+
   const sendVoiceMessage = async () => {
     if (!audioBlob) {
       console.error("No audio blob available");
@@ -384,6 +397,19 @@ const ChatArea = ({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Get all images from messages for preview carousel
+  const getAllChatImages = () => {
+    const allImages = [];
+    messages.forEach(msg => {
+      if (msg.images && Array.isArray(msg.images)) {
+        allImages.push(...msg.images);
+      } else if (msg.image) {
+        allImages.push(msg.image);
+      }
+    });
+    return allImages;
+  };
+
   // Get message container style based on message type
   const getMessageContainerStyle = (msg, isSelf) => {
     // Image + Text combo - special styling
@@ -402,12 +428,22 @@ const ChatArea = ({
       const token = storage.getPersistent("chatToken");
       if (!token) return;
 
-      const messageData = {
-        content: imageData.caption || "", // Use caption as content if provided
-        image: imageData.url, // Rasm URL'i
-        chatType,
-        chatId: currentChat.id,
-      };
+      let messageData;
+      if (imageData?.images && Array.isArray(imageData.images)) {
+        messageData = {
+          content: imageData.caption || "",
+          images: imageData.images,
+          chatType,
+          chatId: currentChat.id,
+        };
+      } else {
+        messageData = {
+          content: imageData.caption || "",
+          image: imageData.url,
+          chatType,
+          chatId: currentChat.id,
+        };
+      }
 
       const result = await sendMessage(token, messageData);
       setShowImageUpload(false); // Upload dialog yopish
@@ -418,6 +454,7 @@ const ChatArea = ({
           id: result.data.id,
           content: result.data.content,
           image: result.data.image,
+          images: result.data.images,
           chatType: result.data.chatType,
           chatId: result.data.chatId,
           timestamp: result.data.timestamp,
@@ -1645,14 +1682,111 @@ const ChatArea = ({
                             ? "overflow-hidden shadow-sm"
                             : ""
                         }`}>
-                        {/* Image rendering */}
+                        {/* Image rendering (single or album) */}
+                        {msg.images && Array.isArray(msg.images) && msg.images.length > 0 && (
+                          <div 
+                            className={`relative ${msg.content ? "overflow-hidden rounded-t-2xl shadow-sm" : "overflow-hidden rounded-2xl shadow-sm"}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Open image preview carousel
+                              const allChatImages = getAllChatImages();
+                              setImagePreviewData({
+                                images: msg.images,
+                                allChatImages: allChatImages,
+                                startIndex: 0
+                              });
+                            }}
+                          >
+                            <div className="grid grid-cols-2 gap-1 max-w-[300px] cursor-pointer">
+                              {msg.images.slice(0, 4).map((u, i, arr) => {
+                                const count = arr.length;
+                                // Determine rounded corners so only the OUTER corners are rounded
+                                let rounded = "";
+                                if (msg.content) {
+                                  // When there is a caption, only top corners should be rounded on the first row
+                                  if (i === 0) rounded = "rounded-tl-2xl";
+                                  else if (i === 1) rounded = "rounded-tr-2xl";
+                                } else {
+                                  // No caption: round outer corners based on index and count (up to 4)
+                                  if (count === 1) {
+                                    rounded = "rounded-2xl";
+                                  } else if (count === 2) {
+                                    rounded = i === 0 ? "rounded-l-2xl" : "rounded-r-2xl";
+                                  } else if (count >= 3) {
+                                    if (i === 0) rounded = "rounded-tl-2xl";
+                                    else if (i === 1) rounded = "rounded-tr-2xl";
+                                    else if (i === 2 && count === 3) rounded = "rounded-b-2xl"; // third spans bottom row
+                                    else if (i === 2) rounded = "rounded-bl-2xl";
+                                    else if (i === 3) rounded = "rounded-br-2xl";
+                                  }
+                                }
+                                return (
+                                  <img
+                                    key={i}
+                                    src={toAbsoluteUrl(u)}
+                                    alt="img"
+                                    className={`${rounded} w-full h-[150px] object-cover`}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {/* Caption for album (images array) */}
+                        {msg.content && msg.images && Array.isArray(msg.images) && msg.images.length > 0 && (
+                          <div
+                            className={`text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere p-3 ${
+                              chatType === "channel"
+                                ? "bg-gray-200 text-gray-900"
+                                : isSelf
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-200 text-gray-900"
+                            } rounded-b-2xl rounded-t-none`}
+                          >
+                            {msg.content}
+                            <div className="flex items-center justify-end gap-1 mt-2">
+                              {chatType === "channel" && (
+                                <div className="flex items-center gap-1">
+                                  <Eye className="w-4 h-4 text-gray-500" />
+                                  <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                                    {Array.isArray(messageReaders) ? messageReaders.length : 0}
+                                  </span>
+                                </div>
+                              )}
+                              <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                                {msg.isEdited && "edited • "}
+                                {new Date(msg.timestamp).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                              {isSelf && chatType !== 'channel' && (
+                                <div>
+                                  {isRead ? (
+                                    <CheckCheck className="w-4 h-4 text-blue-300" title={`${messageReaders.length} kishi o'qidi`} />
+                                  ) : (
+                                    <Check className="w-4 h-4 text-blue-300" title="Yuborildi" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         {msg.image && (
                           <div
                             className={`relative ${
                               msg.content
                                 ? ""
                                 : "overflow-hidden rounded-2xl shadow-sm"
-                            }`}>
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Open image preview carousel
+                              const allChatImages = getAllChatImages();
+                              setImagePreviewData({
+                                images: [msg.image],
+                                allChatImages: allChatImages,
+                                startIndex: allChatImages.indexOf(msg.image)
+                              });
+                            }}
+                          >
                             <img
                               src={toAbsoluteUrl(msg.image)}
                               alt="Yuborilgan rasm"
@@ -1664,9 +1798,6 @@ const ChatArea = ({
                                 maxHeight: "300px",
                                 display: "block",
                               }}
-                              onClick={() =>
-                                window.open(toAbsoluteUrl(msg.image), "_blank")
-                              }
                             />
                           </div>
                         )}
@@ -1685,7 +1816,7 @@ const ChatArea = ({
                         )}
 
                         {/* Text content */}
-                        {msg.content && !msg.image && !msg.voiceMessage && (
+                        {msg.content && !msg.image && !msg.voiceMessage && !(msg.images && Array.isArray(msg.images) && msg.images.length > 0) && (
                           <div
                             className={`text-sm break-words text-left whitespace-pre-wrap overflow-wrap-anywhere p-3 pb-1 rounded-lg ${
                               chatType === "channel"
@@ -1758,7 +1889,7 @@ const ChatArea = ({
                                 : isSelf
                                 ? "bg-blue-500 text-white"
                                 : "bg-gray-200 text-gray-900"
-                            } rounded-b-2xl`}>
+                            } rounded-b-2xl rounded-t-none`}>
                             {msg.content}
                             {/* Footer inside the caption bubble to avoid white background */}
                             <div className="flex items-center justify-end gap-1 mt-2">
@@ -2266,6 +2397,16 @@ const ChatArea = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {imagePreviewData && (
+        <ImagePreview
+          images={imagePreviewData.images}
+          allChatImages={imagePreviewData.allChatImages}
+          currentImageIndex={imagePreviewData.startIndex}
+          onClose={() => setImagePreviewData(null)}
+        />
       )}
     </div>
   );

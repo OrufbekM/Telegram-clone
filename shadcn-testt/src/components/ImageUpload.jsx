@@ -15,6 +15,8 @@ const ImageUpload = ({
 }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]); // multiple selection support
+  const [previewUrls, setPreviewUrls] = useState([]); // multiple previews
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
@@ -30,8 +32,13 @@ const ImageUpload = ({
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
+      if (previewUrls && previewUrls.length) {
+        previewUrls.forEach((u) => {
+          try { URL.revokeObjectURL(u); } catch (e) {}
+        });
+      }
     };
-  }, [previewUrl]);
+  }, [previewUrl, previewUrls]);
 
   const API_URL = "http://localhost:3000";
 
@@ -58,7 +65,8 @@ const handleEmojiSelect = (emoji) => {
   }, [autoOpen]); // Remove selectedImage from dependencies
 
   const handleFileSelect = async (event) => {
-    const file = event.target.files[0];
+    const files = Array.from(event.target.files || []);
+    const file = files[0];
     if (!file) {
       // If no file selected and autoOpen is true, close the component
       if (autoOpen && onCancel) {
@@ -67,43 +75,61 @@ const handleEmojiSelect = (emoji) => {
       return;
     }
 
-    // Fayl turi va hajmini tekshirish
-    if (!file.type.startsWith("image/")) {
-      setError("Faqat rasm fayllari ruxsat etilgan");
+    // Helper to validate a single file
+    const validate = (f) => {
+      if (!f.type.startsWith("image/")) {
+        setError("Faqat rasm fayllari ruxsat etilgan");
+        return false;
+      }
+      if (f.size > 10 * 1024 * 1024) {
+        setError("Rasm hajmi 10MB dan kichik bo'lishi kerak");
+        return false;
+      }
+      return true;
+    };
+
+    // If user selected multiple images for message, show multi preview modal
+    if (isForMessage && files.length > 1) {
+      const valid = files.filter((f) => validate(f));
+      if (valid.length === 0) return;
+      setSelectedImages(valid);
+      // build previews
+      const readers = await Promise.all(
+        valid.map(
+          (f) =>
+            new Promise((resolve) => {
+              const r = new FileReader();
+              r.onload = (e) => resolve(e.target.result);
+              r.readAsDataURL(f);
+            })
+        )
+      );
+      setPreviewUrls(readers);
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      // 10MB
-      setError("Rasm hajmi 10MB dan kichik bo'lishi kerak");
-      return;
-    }
-
+    // Single-file flow (preview with optional caption)
+    if (!validate(file)) return;
     setError(null);
     setSelectedImage(file);
 
-    // Preview yaratish
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreviewUrl(e.target.result);
     };
     reader.readAsDataURL(file);
 
-    // Parent komponentga bildirish
     if (onImageSelect) {
       onImageSelect(file);
     }
 
-    // Auto-open mode: show preview instead of immediate upload
-    // Only auto-send for group info dialog (when it's avatar update)
-    // For chat messages, always show preview with caption option
     if (autoOpen && onComplete && !isForMessage) {
       console.log("🚀 Auto-uploading image for group avatar...");
       await handleAutoSend(file);
     }
   };
 
-  const handleAutoSend = async (file) => {
+  const handleAutoSend = async (file, captionForAll = "", closeAfter = true) => {
     if (!file) {
       console.error("❌ No file provided for upload");
       return;
@@ -199,13 +225,15 @@ const handleEmojiSelect = (emoji) => {
             filename: result.image.filename,
             originalName: result.image.originalName,
             size: result.image.size,
-            caption: "", // No caption in auto mode
+            caption: captionForAll || "",
           });
         }
-        // Reset state and close component
-        resetState();
-        if (onCancel) {
-          onCancel();
+        // Reset/close only when explicitly requested (single-file flows)
+        if (closeAfter) {
+          resetState();
+          if (onCancel) {
+            onCancel();
+          }
         }
       } else {
         console.error("❌ Upload failed:", result);
@@ -300,6 +328,8 @@ const handleEmojiSelect = (emoji) => {
   const resetState = () => {
     setSelectedImage(null);
     setPreviewUrl(null);
+    setSelectedImages([]);
+    setPreviewUrls([]);
     setError(null);
     setUploadProgress(0);
     setCaption("");
@@ -400,6 +430,115 @@ const handleEmojiSelect = (emoji) => {
     );
   }
 
+  // Multi-image modal for messages
+  if (selectedImages.length > 1 && previewUrls.length > 1) {
+    return (
+      <div className="fixed inset-0 bg-gray-400/40 bg-opacity-60 flex items-center justify-center z-[9999] p-4">
+        <div className="bg-white border border-[10px] border-white rounded-xl max-w-2xl w-full shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Send images</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="rounded-full w-8 h-8 p-0 hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-80 overflow-auto">
+              {previewUrls.map((url, idx) => (
+                <img key={idx} src={url} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
+              ))}
+            </div>
+          </div>
+
+          <div className="px-4 pb-3">
+            <div className="flex items-center space-x-2">
+              <EmojiPickerComponent
+                isOpen={showEmojiPicker}
+                onToggle={setShowEmojiPicker}
+                onEmojiSelect={handleEmojiSelect}
+                className="flex-shrink-0"
+              />
+              <input
+                type="text"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="Add a caption for all..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 placeholder-gray-400 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="px-4 py-3 flex space-x-3 justify-end bg-gray-50">
+            <Button
+              variant="outline"
+              onClick={handleCancel}
+              disabled={isUploading}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 transition-all text-sm text-gray-700 bg-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                setIsUploading(true);
+                try {
+                  // Upload each, collect URLs then call onComplete ONCE
+                  const urls = [];
+                  for (const f of selectedImages) {
+                    // eslint-disable-next-line no-await-in-loop
+                    const url = await new Promise((resolve, reject) => {
+                      const formData = new FormData();
+                      formData.append('image', f);
+                      const xhr = new XMLHttpRequest();
+                      xhr.onload = () => {
+                        try {
+                          if (xhr.status === 200) {
+                            const resp = JSON.parse(xhr.responseText);
+                            resolve(resp?.image?.url);
+                          } else {
+                            reject(new Error('Upload failed'));
+                          }
+                        } catch (e) { reject(e); }
+                      };
+                      xhr.onerror = reject;
+                      xhr.open('POST', `${API_URL}/api/upload/image`);
+                      xhr.send(formData);
+                    });
+                    if (url) urls.push(url);
+                  }
+                  if (onComplete && urls.length) {
+                    onComplete({ images: urls, caption: caption.trim() });
+                  }
+                  resetState(); if (onCancel) onCancel();
+                } finally {
+                  setIsUploading(false);
+                }
+              }}
+              disabled={isUploading}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white text-sm font-medium transition-all min-w-[80px]"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (selectedImage && previewUrl) {
     return (
       <div className="fixed inset-0 bg-gray-400/40 bg-opacity-60 flex items-center justify-center z-[9999] p-4">
@@ -494,6 +633,7 @@ const handleEmojiSelect = (emoji) => {
       ref={fileInputRef}
       type="file"
       accept="image/*"
+      multiple
       onChange={handleFileSelect}
       className="hidden"
     />

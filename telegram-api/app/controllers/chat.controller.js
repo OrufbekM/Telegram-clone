@@ -8,11 +8,11 @@ const PrivateChat = db.privateChats;
 
 exports.sendMessage = async (req, res) => {
   try {
-    const { content, image, voiceMessage, chatType, chatId, replyToMessageId } = req.body;
+    const { content, image, images, voiceMessage, chatType, chatId, replyToMessageId } = req.body;
 
-    if ((!content || !content.trim()) && !image && !voiceMessage) {
+    if ((!content || !content.trim()) && !image && !voiceMessage && !(images && images.length)) {
       return res.status(400).json({
-        message: "Content, image, or voice message is required!",
+        message: "Content, image(s), or voice message is required!",
       });
     }
 
@@ -124,16 +124,32 @@ exports.sendMessage = async (req, res) => {
       }
     }
 
-    const message = await Message.create({
-      content: content || null,
-      image: image || null,
-      voiceMessage: voiceFilePath,
-      voiceDuration: voiceDuration,
-      userId: req.userId,
-      chatType,
-      chatId: chatIdInt,
-      replyToMessageId: replyId,
-    });
+    let message = null;
+    // Support image albums sent as one message (store URLs JSON in images field)
+    if (Array.isArray(images) && images.length > 0) {
+      message = await Message.create({
+        content: (content || null),
+        image: null,
+        images: JSON.stringify(images),
+        voiceMessage: voiceFilePath,
+        voiceDuration: voiceDuration,
+        userId: req.userId,
+        chatType,
+        chatId: chatIdInt,
+        replyToMessageId: replyId,
+      });
+    } else {
+      message = await Message.create({
+        content: content || null,
+        image: image || null,
+        voiceMessage: voiceFilePath,
+        voiceDuration: voiceDuration,
+        userId: req.userId,
+        chatType,
+        chatId: chatIdInt,
+        replyToMessageId: replyId,
+      });
+    }
 
     const user = await User.findByPk(req.userId);
 
@@ -141,6 +157,7 @@ exports.sendMessage = async (req, res) => {
       id: message.id,
       content: message.content,
       image: message.image,
+      images: message.images ? JSON.parse(message.images) : null,
       voiceMessage: message.voiceMessage ? {
         url: message.voiceMessage,
         duration: message.voiceDuration,
@@ -395,6 +412,7 @@ exports.getMessages = async (req, res) => {
       id: msg.id,
       content: msg.content,
       image: msg.image,
+    images: msg.images ? JSON.parse(msg.images) : null,
       voiceMessage: msg.voiceMessage
         ? {
             url: msg.voiceMessage,
