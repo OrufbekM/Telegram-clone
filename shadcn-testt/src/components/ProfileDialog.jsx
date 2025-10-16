@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react'
+﻿﻿import React, { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
@@ -126,9 +126,9 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-background text-foreground">
         <DialogHeader>
-          <DialogTitle>Profil</DialogTitle>
+          <DialogTitle className="text-foreground">Profil</DialogTitle>
         </DialogHeader>
         {}
         {!isEditing && (
@@ -136,17 +136,17 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
             <div className="flex items-center space-x-3 mb-4">
               <Avatar className="w-12 h-12">
                 {profile.avatar && <AvatarImage src={toAbsoluteUrl(profile.avatar)} alt="avatar" />}
-                <AvatarFallback className="bg-blue-100 text-blue-600">{initial}</AvatarFallback>
+                <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground">{initial}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-semibold">{profile.username}</p>
-                <p className="text-sm text-gray-500">{profile.email}</p>
+                <p className="font-semibold text-foreground">{profile.username}</p>
+                <p className="text-sm text-muted-foreground">{profile.email}</p>
               </div>
             </div>
-            <div className="space-y-1 text-sm">
-              <p><span className="text-gray-500">Ism:</span> {profile.firstName || '-'}</p>
-              <p><span className="text-gray-500">Familya:</span> {profile.lastName || '-'}</p>
-              <p><span className="text-gray-500">Bio:</span> {profile.bio || '-'}</p>
+            <div className="space-y-1 text-sm text-foreground">
+              <p><span className="text-muted-foreground">Ism:</span> {profile.firstName || '-'}</p>
+              <p><span className="text-muted-foreground">Familya:</span> {profile.lastName || '-'}</p>
+              <p><span className="text-muted-foreground">Bio:</span> {profile.bio || '-'}</p>
             </div>
             <div className="flex space-x-2 mt-4">
               <Button className="flex-1" onClick={() => setIsEditing(true)}>Tahrirlash</Button>
@@ -160,17 +160,17 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
             <div className="flex items-center space-x-3">
               <Avatar className="w-16 h-16">
                 {profile.avatar && <AvatarImage src={toAbsoluteUrl(profile.avatar)} alt="avatar" />}
-                <AvatarFallback className="bg-blue-100 text-blue-600">{initial}</AvatarFallback>
+                <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground">{initial}</AvatarFallback>
               </Avatar>
-              <label className="inline-flex items-center px-3 py-2 rounded-md border cursor-pointer text-sm bg-white hover:bg-gray-50">
+              <label className="inline-flex items-center px-3 py-2 rounded-md border cursor-pointer text-sm bg-sidebar text-sidebar-foreground hover:bg-sidebar-accent">
                 <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} disabled={uploading} />
                 {uploading ? 'Yuklanmoqda...' : 'Avatar yuklash'}
               </label>
             </div>
-              <Input placeholder="Username" value={form.username} onChange={(e) => setForm(f => ({ ...f, username: e.target.value }))} />
-            <Input placeholder="Ism" value={form.firstName} onChange={(e) => setForm(f => ({ ...f, firstName: e.target.value }))} />
-            <Input placeholder="Familya" value={form.lastName} onChange={(e) => setForm(f => ({ ...f, lastName: e.target.value }))} />
-            <Input placeholder="Bio" value={form.bio} onChange={(e) => setForm(f => ({ ...f, bio: e.target.value }))} />
+              <Input placeholder="Username" value={form.username} onChange={(e) => setForm(f => ({ ...f, username: e.target.value }))} className="bg-sidebar text-foreground placeholder:text-muted-foreground" />
+            <Input placeholder="Ism" value={form.firstName} onChange={(e) => setForm(f => ({ ...f, firstName: e.target.value }))} className="bg-sidebar text-foreground placeholder:text-muted-foreground" />
+            <Input placeholder="Familya" value={form.lastName} onChange={(e) => setForm(f => ({ ...f, lastName: e.target.value }))} className="bg-sidebar text-foreground placeholder:text-muted-foreground" />
+            <Input placeholder="Bio" value={form.bio} onChange={(e) => setForm(f => ({ ...f, bio: e.target.value }))} className="bg-sidebar text-foreground placeholder:text-muted-foreground" />
             <div className="flex space-x-2">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setIsEditing(false)}>Bekor qilish</Button>
               <Button type="submit" className="flex-1" disabled={loading}>{loading ? 'Saqlanmoqda...' : 'Saqlash'}</Button>

@@ -4,10 +4,10 @@ import { Button } from './ui/button'
 const LogoutConfirmDialog = ({ open, onOpenChange, onConfirm, onCancel }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-background text-foreground">
         <DialogHeader>
-          <DialogTitle>Chiqishni tasdiqlang</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-foreground">Chiqishni tasdiqlang</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
             Rostan ham tizimdan chiqishni xohlaysizmi? Barcha ma'lumotlar saqlanadi.
           </DialogDescription>
         </DialogHeader>
@@ -23,4 +23,4 @@ const LogoutConfirmDialog = ({ open, onOpenChange, onConfirm, onCancel }) => {
     </Dialog>
   )
 }
-export default LogoutConfirmDialog 
+export default LogoutConfirmDialog

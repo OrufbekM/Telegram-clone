@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { 
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ const toAbsoluteUrl = (url) => {
   return url.startsWith('http') ? url : `${API_URL}${url}`;
 };
 
-const UserInfoDialog = ({ open, onOpenChange, user }) => {
+const MyProfile = ({ open, onOpenChange, user }) => {
   const initial = (user?.username || 'U')[0].toUpperCase();
 
   // Check if user has any data
@@ -31,7 +31,7 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>User Info</DialogTitle>
+          <DialogTitle>My Profile</DialogTitle>
         </DialogHeader>
         <div className="py-4">
           {hasUserData ? (
@@ -44,17 +44,19 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
                 </Avatar>
                 <div>
                   <h2 className="text-xl font-bold">{user?.username || 'Username'}</h2>
-                  <p className="text-gray-500">
-                    {user?.isOnline ? 'online' : user?.lastSeen ? `last seen ${user.lastSeen}` : 'offline'}
-                  </p>
+                  <p className="text-gray-500">online</p>
                 </div>
               </div>
               
               {/* User information in Telegram-like layout */}
               <div className="space-y-3">
                 <div className="flex">
+                  <span className="text-gray-500 w-24">Phone:</span>
+                  <span className="flex-1">{user?.phone || 'Malumot yo\'q'}</span>
+                </div>
+                <div className="flex">
                   <span className="text-gray-500 w-24">Username:</span>
-                  <span className="flex-1">{user?.username ? `@${user.username}` : '-'}</span>
+                  <span className="flex-1">{user?.username ? `${user.username}` : '-'}</span>
                 </div>
                 {user?.firstName && (
                   <div className="flex">
@@ -74,10 +76,7 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
                     <span className="flex-1">{user.bio}</span>
                   </div>
                 )}
-                <div className="flex">
-                  <span className="text-gray-500 w-24">Phone:</span>
-                  <span className="flex-1">{user?.phone || 'Malumot yo\'q'}</span>
-                </div>
+                
               </div>
             </>
           ) : (
@@ -95,4 +94,4 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
   );
 };
 
-export default UserInfoDialog;
+export default MyProfile;

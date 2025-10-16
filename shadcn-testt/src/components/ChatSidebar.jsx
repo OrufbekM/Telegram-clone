@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   Megaphone,
   X,
+  Menu
 } from "lucide-react";
 import { useGroups } from "../hooks/useGroups";
 import { useUsers } from "../hooks/useUsers";
@@ -30,6 +31,7 @@ import GroupLeaveModal from "./GroupLeaveModal";
 import OnlineStatusIndicator from "./OnlineStatusIndicator";
 import AvatarWithStatus from "./AvatarWithStatus";
 import ProfileDialog from "./ProfileDialog";
+import ProfileSheet from "./ProfileSheet";
 import EntityInfoDialog from "./EntityInfoDialog";
 import { storage } from "../utils/storageUtils";
 const ChatSidebar = ({
@@ -57,6 +59,7 @@ const ChatSidebar = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
   const [infoEntity, setInfoEntity] = useState(null);
 
   // Refs
@@ -732,101 +735,84 @@ const ChatSidebar = ({
     onChatSelect({ ...chat, type }, type);
   };
   return (
-    <div className="w-96 bg-white border-r border-gray-200 flex flex-col h-screen overflow-hidden">
-      {}
-      <div className="p-4 border-b border-gray-200">
+    <div className="w-96 bg-sidebar border-r border-sidebar-border flex flex-col h-screen overflow-hidden text-sidebar-foreground">
+      <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div
-              className="cursor-pointer"
-              onClick={() => setIsProfileOpen(true)}>
-              <Avatar className="w-8 h-8">
-                {user?.avatar && (
-                  <AvatarImage src={toAbsoluteUrl(user.avatar)} alt="avatar" />
-                )}
-                <AvatarFallback className="bg-blue-100 text-blue-600">
-                  {user?.username?.[0]?.toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">
-              {user?.username}
-            </h1>
+          <div
+            className="cursor-pointer p-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            onClick={() => setIsProfileSheetOpen(true)}>
+            <Menu className="w-6 h-6 text-sidebar-foreground" />
           </div>
-        </div>
-        {}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="Qidirish..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            disabled={isSearching}
-            ref={searchInputRef}
-            autoFocus
-          />
-          {isSearching && (
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            </div>
-          )}
-          {!isSearching && searchQuery && (
-            <button
-              onClick={() => handleSearch("")}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          <div className="flex-1"></div>
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Qidirish..."
+              className="pl-10 w-full bg-sidebar text-sidebar-foreground placeholder:text-muted-foreground"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              disabled={isSearching}
+              ref={searchInputRef}
+            />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              </div>
+            )}
+            {!isSearching && searchQuery && (
+              <button
+                onClick={() => handleSearch("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-sidebar-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
-      {
-        <div className="border-b border-gray-200">
-          <div className="flex">
-            <button
-              className={` flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
-                activeTab === "all"
-                  ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-              onClick={() => setActiveTab("all")}>
-              <LayoutGrid className="w-4 h-4 inline mr-1" />
-              Hammasi
-            </button>
-            <button
-              className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
-                activeTab === "users"
-                  ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-              onClick={() => setActiveTab("users")}>
-              <User className="w-4 h-4 inline mr-1" />
-              Shaxsiy
-            </button>
-            <button
-              className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
-                activeTab === "groups"
-                  ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-              onClick={() => setActiveTab("groups")}>
-              <Users className="w-4 h-4 inline mr-1" />
-              Guruhlar
-            </button>
-            <button
-              className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
-                activeTab === "channels"
-                  ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-              onClick={() => setActiveTab("channels")}>
-              <Megaphone className="w-4 h-4 inline mr-1" />
-              Kanallar
-            </button>
-          </div>
+      <div className="border-b border-sidebar-border">
+        <div className="flex">
+          <button
+            className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
+              activeTab === "all"
+                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent"
+                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            }`}
+            onClick={() => setActiveTab("all")}>
+            <LayoutGrid className="w-4 h-4 inline mr-1" />
+            Hammasi
+          </button>
+          <button
+            className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
+              activeTab === "users"
+                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent"
+                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            }`}
+            onClick={() => setActiveTab("users")}>
+            <User className="w-4 h-4 inline mr-1" />
+            Shaxsiy
+          </button>
+          <button
+            className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
+              activeTab === "groups"
+                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent"
+                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            }`}
+            onClick={() => setActiveTab("groups")}>
+            <Users className="w-4 h-4 inline mr-1" />
+            Guruhlar
+          </button>
+          <button
+            className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
+              activeTab === "channels"
+                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent"
+                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            }`}
+            onClick={() => setActiveTab("channels")}>
+            <Megaphone className="w-4 h-4 inline mr-1" />
+            Kanallar
+          </button>
         </div>
-      }
-      {}
+      </div>
       {searchQuery && searchQuery.trim().length >= 1 && (
         <div className="border-b border-gray-200">
           {}
@@ -1017,7 +1003,6 @@ const ChatSidebar = ({
           )}
         </div>
       )}
-      {}
       <ScrollArea className="flex-1 overflow-y-auto">
         {}
         {isLoading && (
@@ -1144,9 +1129,6 @@ const ChatSidebar = ({
                   <h3 className="text-sm font-medium text-gray-700">
                     Guruhlar
                   </h3>
-                  <Button variant="ghost" size="sm" onClick={onCreateGroup}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
                 </div>
                 {groups
                   .filter((group) => group.type === "group")
@@ -1220,14 +1202,6 @@ const ChatSidebar = ({
                   <h3 className="text-sm font-medium text-gray-700">
                     Kanallar
                   </h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      window.dispatchEvent(new Event("open-create-channel"))
-                    }>
-                    <Plus className="w-4 h-4" />
-                  </Button>
                 </div>
                 {channels.map((channel) => (
                   <div
@@ -1286,10 +1260,15 @@ const ChatSidebar = ({
           </>
         )}
       </ScrollArea>
-      {}
       <ProfileDialog
         open={isProfileOpen}
         onOpenChange={setIsProfileOpen}
+        onLogout={onLogout}
+      />
+      <ProfileSheet
+        open={isProfileSheetOpen}
+        onOpenChange={setIsProfileSheetOpen}
+        user={user}
         onLogout={onLogout}
       />
       {infoEntity && (
