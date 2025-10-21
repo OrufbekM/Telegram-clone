@@ -1361,9 +1361,15 @@ const ChatArea = ({
                 setShowGroupInfo(true);
               } else {
                 console.log("👤 Opening user info for private chat");
+                // Include online status information when opening user info
+                const userWithStatus = {
+                  ...currentChat.user,
+                  isOnline: userStatuses[currentChat.user.id]?.isOnline ?? currentChat.user.isOnline ?? false,
+                  lastSeen: userStatuses[currentChat.user.id]?.lastSeen ?? currentChat.user.lastSeen
+                };
                 window.dispatchEvent(
                   new CustomEvent("open-user-info", {
-                    detail: currentChat.user,
+                    detail: userWithStatus,
                   })
                 );
               }
@@ -1419,9 +1425,15 @@ const ChatArea = ({
                 setShowGroupInfo(true);
               } else {
                 console.log("👤 Opening user info for private chat");
+                // Include online status information when opening user info
+                const userWithStatus = {
+                  ...currentChat.user,
+                  isOnline: userStatuses[currentChat.user.id]?.isOnline ?? currentChat.user.isOnline ?? false,
+                  lastSeen: userStatuses[currentChat.user.id]?.lastSeen ?? currentChat.user.lastSeen
+                };
                 window.dispatchEvent(
                   new CustomEvent("open-user-info", {
-                    detail: currentChat.user,
+                    detail: userWithStatus,
                   })
                 );
               }
@@ -1641,7 +1653,7 @@ const ChatArea = ({
                       </div>
                     )}
 
-                    {isEditing ? (
+                     {isEditing ? (
                       <div
                         className={`p-3 rounded-lg ${
                           isSelf ? "bg-blue-500 text-white" : "bg-gray-200"

@@ -1,98 +1,137 @@
-﻿import React from 'react';
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle
-} from './ui/dialog';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+﻿import React, { useEffect, useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
+import { Input } from './ui/input'
+import { Button } from './ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { storage } from '../utils/storageUtils'
+import { User, Phone, AtSign, MessageSquare, FileText, Circle } from 'lucide-react'
 
-const API_URL = 'http://localhost:3000';
-
+const API_URL = 'http://localhost:3000'
 const toAbsoluteUrl = (url) => {
-  if (!url) return '';
-  return url.startsWith('http') ? url : `${API_URL}${url}`;
-};
+  if (!url) return ''
+  return url.startsWith('http') ? url : `${API_URL}${url}`
+}
+
+const formatLastSeen = (lastSeen) => {
+  if (!lastSeen) return 'offline'
+  
+  const date = new Date(lastSeen)
+  const now = new Date()
+  const diffInMinutes = Math.floor((now - date) / (1000 * 60))
+  
+  if (diffInMinutes < 1) return 'last seen just now'
+  if (diffInMinutes < 60) return `last seen ${diffInMinutes} minutes ago`
+  
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  if (diffInHours < 24) return `last seen ${diffInHours} hours ago`
+  
+  return `last seen ${date.toLocaleDateString()}`
+}
 
 const UserInfoDialog = ({ open, onOpenChange, user }) => {
-  const initial = (user?.username || 'U')[0].toUpperCase();
+  const [userInfo, setUserInfo] = useState({ 
+    username: '', 
+    email: '', 
+    firstName: '', 
+    lastName: '', 
+    bio: '', 
+    avatar: '', 
+    phone: '',
+    isOnline: false,
+    lastSeen: null
+  })
 
-  // Check if user has any data
-  const hasUserData = user && (
-    user.username || 
-    user.firstName || 
-    user.lastName || 
-    user.bio || 
-    user.avatar ||
-    user.phone
-  );
+  useEffect(() => {
+    if (open && user) {
+      setUserInfo({
+        username: user.username || '',
+        email: user.email || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        bio: user.bio || '',
+        avatar: user.avatar || '',
+        phone: user.phone || '',
+        isOnline: user.isOnline || false,
+        lastSeen: user.lastSeen || null
+      })
+    }
+  }, [open, user])
 
+  const initial = (userInfo.username || 'U')[0].toUpperCase()
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>User Info</DialogTitle>
+      <DialogContent className="sm:max-w-md bg-background text-foreground p-0 overflow-hidden" >
+        <DialogHeader className="text-primary-foreground items-start p-6">
+          <DialogTitle className="text-xl text-black font-bold text-center">User Info</DialogTitle>
         </DialogHeader>
-        <div className="py-4">
-          {hasUserData ? (
-            <>
-              {/* Avatar and username side by side */}
-              <div className="flex items-center mb-6">
-                <Avatar className="w-20 h-20 mr-4">
-                  {user?.avatar && <AvatarImage src={toAbsoluteUrl(user.avatar)} alt="avatar" />}
-                  <AvatarFallback className="bg-blue-100 text-blue-600 text-xl">{initial}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h2 className="text-xl font-bold">{user?.username || 'Username'}</h2>
-                  <p className="text-gray-500">
-                    {user?.isOnline ? 'online' : user?.lastSeen ? `last seen ${user.lastSeen}` : 'offline'}
-                  </p>
-                </div>
-              </div>
-              
-              {/* User information in Telegram-like layout */}
-              <div className="space-y-3">
-                <div className="flex">
-                  <span className="text-gray-500 w-24">Username:</span>
-                  <span className="flex-1">{user?.username ? `@${user.username}` : '-'}</span>
-                </div>
-                {user?.firstName && (
-                  <div className="flex">
-                    <span className="text-gray-500 w-24">First name:</span>
-                    <span className="flex-1">{user.firstName}</span>
-                  </div>
+        
+        <div className="p-6">
+          <div className="flex flex-row items-center mb-6 gap-4">
+            <Avatar className="w-19 h-19 mb-4">
+              {userInfo.avatar && <AvatarImage src={toAbsoluteUrl(userInfo.avatar)} alt="avatar" />}
+              <AvatarFallback className="bg-primary text-primary-foreground text-2xl">{initial}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">{userInfo.firstName} {userInfo.lastName}</h2>
+              <div className="flex items-center mt-1">
+                {userInfo.isOnline ? (
+                  <>
+                    <span className="text-green-600 text-sm">online</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-sm">
+                    {userInfo.lastSeen ? formatLastSeen(userInfo.lastSeen) : 'offline'}
+                  </span>
                 )}
-                {user?.lastName && (
-                  <div className="flex">
-                    <span className="text-gray-500 w-24">Last name:</span>
-                    <span className="flex-1">{user.lastName}</span>
-                  </div>
-                )}
-                {user?.bio && (
-                  <div className="flex">
-                    <span className="text-gray-500 w-24">Bio:</span>
-                    <span className="flex-1">{user.bio}</span>
-                  </div>
-                )}
-                <div className="flex">
-                  <span className="text-gray-500 w-24">Phone:</span>
-                  <span className="flex-1">{user?.phone || 'Malumot yo\'q'}</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            // Display "No information" message when no user data is available
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="text-gray-500 text-center">
-                <p className="text-lg">Malumot yo'q</p>
-                <p className="text-sm mt-2">Foydalanuvchi ma'lumotlari mavjud emas</p>
               </div>
             </div>
-          )}
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center p-3 rounded-lg bg-muted/50">
+              <User className="h-5 w-5 text-muted-foreground mr-3" />
+              <div>
+                <p className="text-xs text-muted-foreground">Ism</p>
+                <p className="text-foreground">{userInfo.firstName || '-'} {userInfo.lastName || ''}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center p-3 rounded-lg bg-muted/50">
+              <AtSign className="h-5 w-5 text-muted-foreground mr-3" />
+              <div>
+                <p className="text-xs text-muted-foreground">Username</p>
+                <p className="text-foreground">@{userInfo.username || '-'}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center p-3 rounded-lg bg-muted/50">
+              <Phone className="h-5 w-5 text-muted-foreground mr-3" />
+              <div>
+                <p className="text-xs text-muted-foreground">Telefon</p>
+                <p className="text-foreground">{userInfo.phone || "Ma'lumot yo'q"}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center p-3 rounded-lg bg-muted/50">
+              <FileText className="h-5 w-5 text-muted-foreground mr-3 mt-0.5" />
+              <div>
+                <p className="text-xs text-muted-foreground">Bio</p>
+                <p className="text-foreground">{userInfo.bio || "Ma'lumot yo'q"}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex space-x-3 mt-6">
+            <Button className="flex-1">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Xabar yuborish
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
-  );
-};
+  )
+}
 
-export default UserInfoDialog;
+export default UserInfoDialog

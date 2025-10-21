@@ -736,7 +736,7 @@ const ChatSidebar = ({
   };
   return (
     <div className="w-96 bg-sidebar border-r border-sidebar-border flex flex-col h-screen overflow-hidden text-sidebar-foreground">
-      <div className="p-4 border-b border-sidebar-border">
+      <div className="p-4 pl-1 border-b border-sidebar-border" style={{paddingTop: "30px"}}>
         <div className="flex items-center justify-between mb-4">
           <div
             className="cursor-pointer p-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"

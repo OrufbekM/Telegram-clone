@@ -14,11 +14,12 @@ import {
   Moon,
   LogOut,
   Plus,
+  Megaphone,
   
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { storage } from '../utils/storageUtils';
-import MyProfile from './MyProfile';
+import ProfileDialog from './ProfileDialog'; // Changed from MyProfile to ProfileDialog
 
 const API_URL = 'http://localhost:3000';
 
@@ -62,17 +63,16 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
 
   const menuItems = [
     { icon: User, label: 'My Profile', action: handleOpenMyProfile },
-    { icon: Moon, label: 'Night Mode', action: () => console.log('Night Mode'), hasToggle: true },
   ];
 
   const createActionItems = [
-    { icon: Plus, label: 'Add Channel', action: () => { 
+    { icon: Megaphone, label: 'Add Channel', action: () => { 
         console.log('Add Channel');
         window.dispatchEvent(new Event('open-create-channel'));
         onOpenChange(false);
       } 
     },
-    { icon: Plus, label: 'Add Group', action: () => { 
+    { icon: Users, label: 'Add Group', action: () => { 
         console.log('Add Group');
         window.dispatchEvent(new Event('open-create-group'));
         onOpenChange(false);
@@ -96,7 +96,7 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
                 <div className="flex items-center">
                   <p className="font-semibold">{user?.username || 'Username'}</p>
                 </div>
-                <p className="text-sm text-gray-500">online</p>
+                <p className="text-xs text-green-700">Online</p>
               </div>
             </div>
           </SheetHeader>
@@ -160,11 +160,11 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
         </SheetContent>
       </Sheet>
 
-      {/* My Profile Modal */}
-      <MyProfile 
+      {/* My Profile Modal - now using ProfileDialog */}
+      <ProfileDialog 
         open={isMyProfileOpen} 
         onOpenChange={setIsMyProfileOpen} 
-        user={user} 
+        onLogout={onLogout} // Pass onLogout prop
       />
     </>
   );
