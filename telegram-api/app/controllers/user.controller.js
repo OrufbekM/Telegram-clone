@@ -1,7 +1,60 @@
-﻿const db = require("../models");
+﻿﻿const db = require("../models");
 const User = db.users;
 const PrivateChat = db.privateChats;
 const Message = db.messages;
+
+// Add this helper function at the top
+const broadcastProfileUpdate = async (wss, userId, updateData) => {
+  try {
+    if (!wss) return;
+    
+    // Get all users who have private chats with this user
+    const privateChats = await PrivateChat.findAll({
+      where: {
+        [db.Sequelize.Op.or]: [
+          { user1Id: userId },
+          { user2Id: userId }
+        ],
+        isActive: true
+      }
+    });
+    
+    // Get unique user IDs from private chats
+    const userIds = new Set();
+    privateChats.forEach(chat => {
+      if (chat.user1Id !== userId) userIds.add(chat.user1Id);
+      if (chat.user2Id !== userId) userIds.add(chat.user2Id);
+    });
+    
+    // Also add the user themselves to receive their own updates
+    userIds.add(userId);
+    
+    // Convert to array
+    const userIdArray = Array.from(userIds);
+    
+    // Broadcast to all relevant users
+    wss.clients.forEach((client) => {
+      if (client.readyState === 1 && 
+          client.userId && 
+          userIdArray.includes(parseInt(client.userId))) {
+        try {
+          client.send(JSON.stringify({
+            type: 'userProfileUpdated',
+            data: {
+              userId: userId,
+              updates: updateData
+            }
+          }));
+        } catch (wsError) {
+          console.error('WebSocket profile update broadcast error:', wsError);
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error broadcasting profile update:', error);
+  }
+};
+
 exports.searchUsers = async (req, res) => {
   try {
     const { query } = req.query;
@@ -32,6 +85,7 @@ exports.searchUsers = async (req, res) => {
     });
   }
 };
+
 exports.getUserProfile = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -52,6 +106,7 @@ exports.getUserProfile = async (req, res) => {
     });
   }
 };
+
 exports.updateProfile = async (req, res) => {
   try {
     const { firstName, lastName, bio, phone } = req.body;
@@ -67,6 +122,20 @@ exports.updateProfile = async (req, res) => {
       bio: bio || user.bio,
       phone: phone || user.phone
     });
+    
+    // Broadcast profile update to relevant users
+    const updateData = {
+      firstName: firstName || user.firstName,
+      lastName: lastName || user.lastName,
+      bio: bio || user.bio,
+      phone: phone || user.phone,
+      avatar: user.avatar
+    };
+    
+    if (req.app.locals.wss) {
+      await broadcastProfileUpdate(req.app.locals.wss, req.userId, updateData);
+    }
+    
     res.status(200).json({
       message: "Profile updated successfully!",
       user: {
@@ -85,6 +154,7 @@ exports.updateProfile = async (req, res) => {
     });
   }
 };
+
 exports.updateAvatar = async (req, res) => {
   try {
     const { avatar } = req.body;
@@ -100,6 +170,12 @@ exports.updateAvatar = async (req, res) => {
       });
     }
     await user.update({ avatar });
+    
+    // Broadcast avatar update to relevant users
+    if (req.app.locals.wss) {
+      await broadcastProfileUpdate(req.app.locals.wss, req.userId, { avatar });
+    }
+    
     res.status(200).json({
       message: "Avatar updated successfully!",
       avatar: user.avatar
@@ -110,6 +186,7 @@ exports.updateAvatar = async (req, res) => {
     });
   }
 };
+
 exports.startPrivateChat = async (req, res) => {
   try {
     const { targetUserId } = req.body;
@@ -164,6 +241,7 @@ exports.startPrivateChat = async (req, res) => {
     });
   }
 };
+
 exports.getPrivateChats = async (req, res) => {
   try {
     console.log(`рџ”Ќ Fetching private chats for user ${req.userId}`);
@@ -238,6 +316,7 @@ exports.getPrivateChats = async (req, res) => {
     });
   }
 };
+
 exports.updateOnlineStatus = async (req, res) => {
   try {
     const { isOnline } = req.body;
@@ -263,6 +342,7 @@ exports.updateOnlineStatus = async (req, res) => {
     });
   }
 };
+
 exports.getUsersOnlineStatus = async (req, res) => {
   try {
     const { userIds } = req.body;
@@ -294,6 +374,7 @@ exports.getUsersOnlineStatus = async (req, res) => {
     });
   }
 };
+
 exports.setUserOffline = async (userId) => {
   try {
     const user = await User.findByPk(userId);
@@ -307,6 +388,7 @@ exports.setUserOffline = async (userId) => {
     console.error('Error setting user offline:', err);
   }
 };
+
 exports.setUserOnline = async (userId) => {
   try {
     const user = await User.findByPk(userId);
@@ -321,6 +403,7 @@ exports.setUserOnline = async (userId) => {
     console.error('Error setting user online:', err);
   }
 };
+
 exports.setEnhancedUserOnline = async (userId, location, sessionId) => {
   try {
     const user = await User.findByPk(userId);
@@ -335,6 +418,7 @@ exports.setEnhancedUserOnline = async (userId, location, sessionId) => {
     console.error('Error setting enhanced user online:', err);
   }
 };
+
 exports.setEnhancedUserOffline = async (userId) => {
   try {
     const user = await User.findByPk(userId);
@@ -349,6 +433,7 @@ exports.setEnhancedUserOffline = async (userId) => {
     console.error('Error setting enhanced user offline:', err);
   }
 };
+
 exports.getUserById = async (userId) => {
   try {
     const user = await User.findByPk(userId, {
@@ -360,6 +445,7 @@ exports.getUserById = async (userId) => {
     return null;
   }
 };
+
 exports.checkOnlineVisibility = async (viewerId, targetUserId) => {
   try {
     const targetUser = await User.findByPk(targetUserId, {
@@ -379,6 +465,7 @@ exports.checkOnlineVisibility = async (viewerId, targetUserId) => {
     return { canSee: false, isOnline: false, lastSeen: null };
   }
 };
+
 exports.deleteUser = async (req, res) => {
   try {
     const user = await User.findByPk(req.userId);
@@ -397,6 +484,7 @@ exports.deleteUser = async (req, res) => {
     });
   }
 };
+
 exports.setSelectiveOnlineStatus = async (req, res) => {
   try {
     const { location, sessionId, isOnline, visibilitySettings } = req.body;
@@ -445,6 +533,7 @@ exports.setSelectiveOnlineStatus = async (req, res) => {
     });
   }
 };
+
 exports.checkOnlineVisibility = async (viewerUserId, targetUserId) => {
   try {
     const targetUser = await User.findByPk(targetUserId);
@@ -500,6 +589,7 @@ exports.checkOnlineVisibility = async (viewerUserId, targetUserId) => {
     };
   }
 };
+
 exports.getEnhancedUsersOnlineStatus = async (req, res) => {
   try {
     const { userIds } = req.body;
@@ -522,6 +612,7 @@ exports.getEnhancedUsersOnlineStatus = async (req, res) => {
     });
   }
 };
+
 exports.updateOnlinePrivacySettings = async (req, res) => {
   try {
     const { 
@@ -560,6 +651,7 @@ exports.updateOnlinePrivacySettings = async (req, res) => {
     });
   }
 };
+
 exports.setEnhancedUserOnline = async (userId, location = null, sessionId = null) => {
   try {
     const user = await User.findByPk(userId);
@@ -577,6 +669,7 @@ exports.setEnhancedUserOnline = async (userId, location = null, sessionId = null
     return null;
   }
 };
+
 exports.setEnhancedUserOffline = async (userId) => {
   try {
     const user = await User.findByPk(userId);
@@ -594,6 +687,7 @@ exports.setEnhancedUserOffline = async (userId) => {
     return null;
   }
 };
+
 exports.getUserById = async (userId) => {
   try {
     const user = await User.findByPk(userId, {

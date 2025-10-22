@@ -1,10 +1,12 @@
 ﻿import { useEffect, useRef } from "react";
+
 export const useSocket = (userId, onMessage, onStatusUpdate) => {
   const wsRef = useRef(null);
   const heartbeatRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
+
   const sendChatViewEvent = (chatType, chatId) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
@@ -15,6 +17,7 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
       }));
     }
   };
+
   const sendMessageViewEvent = (messageId, chatType, chatId) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
@@ -26,6 +29,7 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
       }));
     }
   };
+
   const endMessageViewEvent = (messageId) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
@@ -35,6 +39,7 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
       }));
     }
   };
+
   const clearChatHistory = (chatType, chatId) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
@@ -46,10 +51,12 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
       }));
     }
   };
+
   const connectWebSocket = () => {
     if (!userId) return;
     const ws = new WebSocket("ws://localhost:3000");
     wsRef.current = ws;
+
     ws.onopen = () => {
       reconnectAttemptsRef.current = 0;
       console.log('рџ”— WebSocket connected, authenticating user:', userId);
@@ -93,8 +100,14 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
         if (data.type === "groupCreated") {
           window.dispatchEvent(new CustomEvent('group-created', { detail: data.data }));
         }
+        if (data.type === "channelCreated") {
+          window.dispatchEvent(new CustomEvent('channel-created', { detail: data.data }));
+        }
         if (data.type === "groupJoined") {
           window.dispatchEvent(new CustomEvent('group-joined', { detail: data.data }));
+        }
+        if (data.type === "channelJoined") {
+          window.dispatchEvent(new CustomEvent('channel-joined', { detail: data.data }));
         }
         if (data.type === "messageEdit") {
           window.dispatchEvent(new CustomEvent('message-edited', { detail: {
@@ -177,6 +190,10 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
           console.log('рџ“ќ Group info updated:', data.data);
           window.dispatchEvent(new CustomEvent('groupInfoUpdated', { detail: data }));
         }
+        if (data.type === "channelInfoUpdated") {
+          console.log('рџ“ќ Channel info updated:', data.data);
+          window.dispatchEvent(new CustomEvent('channelInfoUpdated', { detail: data }));
+        }
         if (data.type === "groupDeleted") {
           console.log('рџ—‘пёЏ Group deleted:', data.data);
           window.dispatchEvent(new CustomEvent('groupDeleted', { detail: data }));
@@ -213,10 +230,27 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
             detail: { groupId, onlineCount, updatedUserId, isOnline }
           }));
         }
+        if (data.type === "channelLeft") {
+          console.log('рџ“¤ Channel left:', data.data);
+          window.dispatchEvent(new CustomEvent('channelLeft', { detail: data.data }));
+        }
+        if (data.type === "channelAdminGranted") {
+          console.log('рџ‘‘ Channel admin granted:', data.data);
+          window.dispatchEvent(new CustomEvent('channelAdminGranted', { detail: data.data }));
+        }
+        if (data.type === "channelAdminRevoked") {
+          console.log('рџ‘¤ Channel admin revoked:', data.data);
+          window.dispatchEvent(new CustomEvent('channelAdminRevoked', { detail: data.data }));
+        }
+        if (data.type === "userProfileUpdated") {
+          console.log('рџ‘¤ User profile updated:', data.data);
+          window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: data.data }));
+        }
       } catch (error) {
       }
     };
   };
+
   useEffect(() => {
     connectWebSocket();
     return () => {
@@ -231,7 +265,9 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
       }
     };
   }, [userId]);
+
   const getCurrentSocket = () => wsRef.current;
+
   return {
     socket: wsRef.current,
     getCurrentSocket,
@@ -241,4 +277,3 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
     clearChatHistory
   };
 };
-

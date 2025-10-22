@@ -2,6 +2,8 @@ const db = require("../models");
 const Group = db.groups;
 const GroupMember = db.groupMembers;
 const User = db.users;
+const Message = db.messages;
+const MessageRead = db.messageReads;
 
 // Create channel (stored in groups table with type='channel')
 exports.createChannel = async (req, res) => {
@@ -20,6 +22,34 @@ exports.createChannel = async (req, res) => {
     });
     await GroupMember.create({ groupId: channel.id, userId: req.userId, role: "creator" });
     await channel.update({ memberCount: 1 });
+    
+    // Broadcast channel creation to all connected users
+    if (req.app.locals.wss) {
+      const channelData = {
+        id: channel.id,
+        name: channel.name,
+        description: channel.description,
+        avatar: channel.avatar,
+        type: channel.type,
+        isPrivate: channel.isPrivate,
+        creatorId: channel.creatorId,
+        memberCount: channel.memberCount,
+      };
+      
+      req.app.locals.wss.clients.forEach((client) => {
+        if (client.readyState === 1 && client.userId) {
+          try {
+            client.send(JSON.stringify({
+              type: 'channelCreated',
+              data: channelData
+            }));
+          } catch (wsError) {
+            console.error('WebSocket channel creation broadcast error:', wsError);
+          }
+        }
+      });
+    }
+    
     res.status(201).json({
       message: "Channel created successfully!",
       channel: {
@@ -79,6 +109,45 @@ exports.joinChannel = async (req, res) => {
     }
     await GroupMember.create({ groupId: channelId, userId: req.userId, role: "member" });
     await channel.update({ memberCount: channel.memberCount + 1 });
+    
+    // Broadcast channel join to channel members
+    if (req.app.locals.wss) {
+      const channelData = {
+        id: channel.id,
+        name: channel.name,
+        description: channel.description,
+        avatar: channel.avatar,
+        type: channel.type,
+        isPrivate: channel.isPrivate,
+        memberCount: channel.memberCount,
+      };
+      
+      const members = await GroupMember.findAll({
+        where: { groupId: channelId, isActive: true },
+        attributes: ['userId']
+      });
+      const memberIds = members.map(member => member.userId);
+      
+      req.app.locals.wss.clients.forEach((client) => {
+        if (client.readyState === 1 && 
+            client.userId && 
+            memberIds.includes(parseInt(client.userId))) {
+          try {
+            client.send(JSON.stringify({
+              type: 'channelJoined',
+              data: {
+                channelId: channel.id,
+                userId: req.userId,
+                channel: channelData
+              }
+            }));
+          } catch (wsError) {
+            console.error('WebSocket channel join broadcast error:', wsError);
+          }
+        }
+      });
+    }
+    
     res.status(200).json({ message: "Joined channel!" });
   } catch (err) {
     res.status(500).json({ message: err.message || "Error joining channel." });
@@ -96,9 +165,118 @@ exports.leaveChannel = async (req, res) => {
     await member.destroy();
     const channel = await Group.findByPk(channelId);
     if (channel) await channel.update({ memberCount: Math.max(0, channel.memberCount - 1) });
+    
+    // Broadcast channel leave to channel members
+    if (req.app.locals.wss) {
+      const members = await GroupMember.findAll({
+        where: { groupId: channelId, isActive: true },
+        attributes: ['userId']
+      });
+      const memberIds = members.map(member => member.userId);
+      
+      req.app.locals.wss.clients.forEach((client) => {
+        if (client.readyState === 1 && 
+            client.userId && 
+            memberIds.includes(parseInt(client.userId))) {
+          try {
+            client.send(JSON.stringify({
+              type: 'channelLeft',
+              data: {
+                channelId: channelId,
+                userId: req.userId
+              }
+            }));
+          } catch (wsError) {
+            console.error('WebSocket channel leave broadcast error:', wsError);
+          }
+        }
+      });
+    }
+    
     res.status(200).json({ message: "Left channel." });
   } catch (err) {
     res.status(500).json({ message: err.message || "Error leaving channel." });
+  }
+};
+
+// Delete channel (only creator)
+exports.deleteChannel = async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const member = await GroupMember.findOne({ 
+      where: { groupId: channelId, userId: req.userId } 
+    });
+    
+    if (!member || member.role !== 'creator') {
+      return res.status(403).json({
+        message: "Only channel creator can delete the channel!"
+      });
+    }
+    
+    const channel = await Group.findByPk(channelId);
+    if (!channel || channel.type !== 'channel') {
+      return res.status(404).json({ message: "Channel not found!" });
+    }
+    
+    // Delete all channel messages and related data
+    const channelMessages = await Message.findAll({
+      where: { chatType: 'channel', chatId: channelId },
+      attributes: ['id']
+    });
+    const messageIds = channelMessages.map(msg => msg.id);
+    if (messageIds.length > 0) {
+      await MessageRead.destroy({ where: { messageId: messageIds } });
+    }
+    await Message.destroy({ where: { chatType: 'channel', chatId: channelId } });
+    await GroupMember.destroy({ where: { groupId: channelId } });
+    await channel.destroy();
+    
+    // Broadcast channel deletion to all members
+    if (req.app.locals.wss) {
+      const members = await GroupMember.findAll({
+        where: { groupId: channelId, isActive: true },
+        attributes: ['userId']
+      });
+      const memberIds = members.map(member => member.userId);
+      
+      req.app.locals.wss.clients.forEach((client) => {
+        if (client.readyState === 1 && 
+            client.userId && 
+            memberIds.includes(parseInt(client.userId))) {
+          try {
+            client.send(JSON.stringify({
+              type: 'channelDeleted',
+              data: {
+                channelId: channelId,
+                deletedBy: req.userId
+              }
+            }));
+            
+            // Also send chatDeleted event for UI consistency
+            client.send(JSON.stringify({
+              type: 'chatDeleted',
+              data: {
+                chatType: 'channel',
+                chatId: channelId,
+                deletedBy: req.userId,
+                timestamp: new Date().toISOString()
+              }
+            }));
+          } catch (wsError) {
+            console.error('WebSocket channel deletion broadcast error:', wsError);
+          }
+        }
+      });
+    }
+    
+    res.status(200).json({
+      message: "Channel deleted successfully!",
+      channelDeleted: true
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: err.message || "Some error occurred while deleting channel."
+    });
   }
 };
 
@@ -203,6 +381,35 @@ exports.updateChannelInfo = async (req, res) => {
     if (description !== undefined) updateData.description = description;
     if (avatar !== undefined) updateData.avatar = avatar;
     await channel.update(updateData);
+    
+    // Broadcast channel info update to channel members
+    if (req.app.locals.wss) {
+      const members = await GroupMember.findAll({
+        where: { groupId: channelId, isActive: true },
+        attributes: ['userId']
+      });
+      const memberIds = members.map(member => member.userId);
+      
+      req.app.locals.wss.clients.forEach((client) => {
+        if (client.readyState === 1 && 
+            client.userId && 
+            memberIds.includes(parseInt(client.userId))) {
+          try {
+            client.send(JSON.stringify({
+              type: 'channelInfoUpdated',
+              data: {
+                channelId: channel.id,
+                updates: updateData,
+                updatedBy: req.userId
+              }
+            }));
+          } catch (wsError) {
+            console.error('WebSocket channel info update broadcast error:', wsError);
+          }
+        }
+      });
+    }
+    
     res.status(200).json({
       message: 'Channel information updated successfully!',
       channel: {
@@ -230,6 +437,35 @@ exports.revokeAdmin = async (req, res) => {
     if (target.role === 'creator') return res.status(400).json({ message: 'Creator cannot be changed.' });
     if (target.role === 'member') return res.status(400).json({ message: 'User is already a regular member.' });
     await target.update({ role: 'member' });
+    
+    // Broadcast admin revocation to channel members
+    if (req.app.locals.wss) {
+      const members = await GroupMember.findAll({
+        where: { groupId: channelId, isActive: true },
+        attributes: ['userId']
+      });
+      const memberIds = members.map(member => member.userId);
+      
+      req.app.locals.wss.clients.forEach((client) => {
+        if (client.readyState === 1 && 
+            client.userId && 
+            memberIds.includes(parseInt(client.userId))) {
+          try {
+            client.send(JSON.stringify({
+              type: 'channelAdminRevoked',
+              data: {
+                channelId: channelId,
+                userId: targetUserId,
+                revokedBy: req.userId
+              }
+            }));
+          } catch (wsError) {
+            console.error('WebSocket channel admin revocation broadcast error:', wsError);
+          }
+        }
+      });
+    }
+    
     res.status(200).json({ message: 'Admin revoked.' });
   } catch (err) {
     res.status(500).json({ message: err.message || 'Error revoking admin.' });
@@ -249,10 +485,37 @@ exports.grantAdmin = async (req, res) => {
     if (target.role === "admin") return res.status(400).json({ message: "Already admin." });
     if (target.role === "creator") return res.status(400).json({ message: "Creator cannot be changed." });
     await target.update({ role: "admin" });
+    
+    // Broadcast admin grant to channel members
+    if (req.app.locals.wss) {
+      const members = await GroupMember.findAll({
+        where: { groupId: channelId, isActive: true },
+        attributes: ['userId']
+      });
+      const memberIds = members.map(member => member.userId);
+      
+      req.app.locals.wss.clients.forEach((client) => {
+        if (client.readyState === 1 && 
+            client.userId && 
+            memberIds.includes(parseInt(client.userId))) {
+          try {
+            client.send(JSON.stringify({
+              type: 'channelAdminGranted',
+              data: {
+                channelId: channelId,
+                userId: targetUserId,
+                grantedBy: req.userId
+              }
+            }));
+          } catch (wsError) {
+            console.error('WebSocket channel admin grant broadcast error:', wsError);
+          }
+        }
+      });
+    }
+    
     res.status(200).json({ message: "Admin granted." });
   } catch (err) {
     res.status(500).json({ message: err.message || "Error granting admin." });
   }
 };
-
-

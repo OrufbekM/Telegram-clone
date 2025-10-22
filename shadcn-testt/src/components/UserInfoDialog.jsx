@@ -5,6 +5,9 @@ import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { storage } from '../utils/storageUtils'
 import { User, Phone, AtSign, MessageSquare, FileText, Circle } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
+import { usePrivateChats } from '../hooks/usePrivateChats'
+import { useToast } from '../hooks/use-toast'
 
 const API_URL = 'http://localhost:3000'
 const toAbsoluteUrl = (url) => {
@@ -40,6 +43,10 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
     isOnline: false,
     lastSeen: null
   })
+  const { getUserProfile } = useAuth()
+  const { startPrivateChat } = usePrivateChats()
+  const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     if (open && user) {
@@ -58,6 +65,54 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
   }, [open, user])
 
   const initial = (userInfo.username || 'U')[0].toUpperCase()
+  
+  const handleSendMessage = async () => {
+    if (!user || !user.id) return
+    
+    setIsLoading(true)
+    try {
+      const token = storage.getPersistent('chatToken')
+      if (!token) {
+        toast({
+          title: "Xatolik",
+          description: "Foydalanuvchi tizimga kirmagan",
+          variant: "destructive"
+        })
+        return
+      }
+      
+      // Start or get existing private chat
+      const response = await startPrivateChat(token, user.id)
+      const chatId = response.chatId || response.data?.chatId
+      
+      if (chatId) {
+        // Close the dialog
+        onOpenChange(false)
+        
+        // Navigate to the chat using the existing event system
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('sidebar-start-chat', {
+            detail: {
+              chatId: chatId,
+              type: 'private',
+              user: user
+            }
+          }))
+        }, 100)
+      } else {
+        throw new Error('Chat ID not found in response')
+      }
+    } catch (error) {
+      console.error('Error starting private chat:', error)
+      toast({
+        title: "Xatolik",
+        description: error.message || "Xabar yuborishda xatolik yuz berdi",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -123,9 +178,10 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
           </div>
           
           <div className="flex space-x-3 mt-6">
-            <Button className="flex-1">
+
+            <Button className="flex-1" onClick={handleSendMessage} disabled={isLoading}>
               <MessageSquare className="h-4 w-4 mr-2" />
-              Xabar yuborish
+              {isLoading ? 'Yuborilmoqda...' : 'Xabar yuborish'}
             </Button>
           </div>
         </div>

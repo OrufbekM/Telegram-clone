@@ -165,7 +165,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-background text-foreground p-0 overflow-hidden" showCloseButton={false}>
         <DialogHeader className="text-primary-foreground items-start p-6" >
-          <DialogTitle className="text-xl text-black font-bold text-center">Profil</DialogTitle>
+          <DialogTitle className="text-xl text-black font-bold text-center">My Profil</DialogTitle>
           <div className="absolute top-4 right-4 profile-menu">
             <Button
               variant="ghost"

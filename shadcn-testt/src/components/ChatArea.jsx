@@ -808,6 +808,20 @@ const ChatArea = ({
         }
       };
 
+      // Listen for channel deletion
+      const handleChannelDeleted = (event) => {
+        const data = event.detail;
+        console.log("Channel deleted:", data);
+        if (data.chatId === currentChat.id && data.chatType === 'channel') {
+          // Show toast notification
+          toast({
+            title: "Kanal o'chirildi",
+            description: "Bu kanal yaratuvchi tomonidan o'chirildi",
+            variant: "destructive",
+          });
+        }
+      };
+
       // Register window event listeners (these match what useSocket dispatches)
       window.addEventListener("new-message", handleNewMessage);
       window.addEventListener("message-read", handleMessageRead);
@@ -816,6 +830,7 @@ const ChatArea = ({
       window.addEventListener("typing-update", handleTypingUpdate);
       window.addEventListener("user-status-update", handleUserStatusUpdate);
       window.addEventListener("chat-history-cleared", handleChatHistoryCleared);
+      window.addEventListener("channelDeleted", handleChannelDeleted);
 
       // Cleanup function
       return () => {
@@ -832,6 +847,7 @@ const ChatArea = ({
           "chat-history-cleared",
           handleChatHistoryCleared
         );
+        window.removeEventListener("channelDeleted", handleChannelDeleted);
 
         // Leave chat room
         if (socket.send && socket.readyState === WebSocket.OPEN) {
@@ -1448,7 +1464,7 @@ const ChatArea = ({
             <h2 className="text-lg font-semibold text-gray-900">
               {chatType === "group" || chatType === "channel"
                 ? currentChat.name
-                : currentChat.user?.username || "Private chat"}
+                : `${currentChat.user.firstName} ${currentChat.user.lastName}` || "Private chat"}
             </h2>
             {(chatType === "group" || chatType === "channel") && (
               <div className="flex items-center space-x-2 text-sm text-gray-500">
@@ -1649,7 +1665,7 @@ const ChatArea = ({
                   <div className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl">
                     {!isSelf && (
                       <div className="text-xs font-medium text-gray-600 mb-1">
-                        {msg.user?.username}
+                        {msg.user?.firstName} {msg.user?.lastName}
                       </div>
                     )}
 

@@ -1,13 +1,16 @@
 ﻿import { useState } from 'react'
 import apiClient from '../../services/api-Client'
+
 export const useChannels = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+
   const handleError = (err, fallbackMessage) => {
     const message = typeof err === 'string' ? err : err?.message || fallbackMessage
     setError(message)
     throw new Error(message)
   }
+
   const createChannel = async (token, payload) => {
     setIsLoading(true)
     setError(null)
@@ -20,6 +23,7 @@ export const useChannels = () => {
       setIsLoading(false)
     }
   }
+
   const getUserChannels = async () => {
     try {
       const { data } = await apiClient.get('/channels/user')
@@ -31,6 +35,7 @@ export const useChannels = () => {
       return handleError(err, 'Kanallarni olishda xatolik')
     }
   }
+
   const joinChannel = async (token, channelId) => {
     try {
       const { data } = await apiClient.post(`/channels/${channelId}/join`)
@@ -39,6 +44,7 @@ export const useChannels = () => {
       return handleError(err, 'Kanala qo\'shilishda xatolik')
     }
   }
+
   const leaveChannel = async (token, channelId) => {
     try {
       const { data } = await apiClient.post(`/channels/${channelId}/leave`)
@@ -47,6 +53,16 @@ export const useChannels = () => {
       return handleError(err, 'Kanaldan chiqishda xatolik')
     }
   }
+
+  const deleteChannel = async (token, channelId) => {
+    try {
+      const { data } = await apiClient.delete(`/channels/${channelId}`)
+      return data
+    } catch (err) {
+      return handleError(err, 'Kanalni o\'chirishda xatolik')
+    }
+  }
+
   const getChannelStatus = async (token, channelId) => {
     try {
       const { data } = await apiClient.get(`/channels/${channelId}/status`)
@@ -58,6 +74,7 @@ export const useChannels = () => {
       return handleError(err, 'Kanal statusini olishda xatolik')
     }
   }
+
   const grantAdmin = async (token, channelId, targetUserId) => {
     try {
       const { data } = await apiClient.post('/channels/grant-admin', { channelId, targetUserId })
@@ -66,6 +83,7 @@ export const useChannels = () => {
       return handleError(err, 'Adminlik berishda xatolik')
     }
   }
+
   const revokeAdmin = async (token, channelId, targetUserId) => {
     try {
       const { data } = await apiClient.post('/channels/revoke-admin', { channelId, targetUserId })
@@ -74,6 +92,7 @@ export const useChannels = () => {
       return handleError(err, 'Adminlikni olib tashlashda xatolik')
     }
   }
+
   const getChannelMembers = async (token, channelId) => {
     try {
       const { data } = await apiClient.get(`/channels/${channelId}/members`)
@@ -82,6 +101,7 @@ export const useChannels = () => {
       return handleError(err, 'A\'zolar ro\'yxatini olishda xatolik')
     }
   }
+
   const updateChannelInfo = async (token, channelId, updateData) => {
     try {
       const { data } = await apiClient.put(`/channels/${channelId}/info`, updateData)
@@ -90,11 +110,13 @@ export const useChannels = () => {
       return handleError(err, 'Kanal ma\'lumotlarini yangilashda xatolik')
     }
   }
+
   return {
     createChannel,
     getUserChannels,
     joinChannel,
     leaveChannel,
+    deleteChannel,
     getChannelStatus,
     grantAdmin,
     revokeAdmin,
@@ -103,4 +125,4 @@ export const useChannels = () => {
     isLoading,
     error
   }
-} 
+}

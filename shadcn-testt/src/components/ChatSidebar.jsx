@@ -34,6 +34,7 @@ import ProfileDialog from "./ProfileDialog";
 import ProfileSheet from "./ProfileSheet";
 import EntityInfoDialog from "./EntityInfoDialog";
 import { storage } from "../utils/storageUtils";
+
 const ChatSidebar = ({
   currentChat,
   currentChatType,
@@ -69,6 +70,7 @@ const ChatSidebar = ({
     if (!url) return "";
     return url.startsWith("http") ? url : `${API_URL}${url}`;
   };
+
   const { getUserGroups, joinGroup, leaveGroup, checkGroupStatus } =
     useGroups();
   const { getPrivateChats } = useUsers();
@@ -89,11 +91,13 @@ const ChatSidebar = ({
     clearUnreadCount,
     incrementUnreadCount,
   } = useUnreadMessages(user, currentChat, currentChatType);
+
   useEffect(() => {
     if (user) {
       fetchUserData();
     }
   }, [user]);
+
   useEffect(() => {
     const listener = async (e) => {
       const targetUser = e.detail;
@@ -103,6 +107,7 @@ const ChatSidebar = ({
     window.addEventListener("sidebar-start-chat", listener);
     return () => window.removeEventListener("sidebar-start-chat", listener);
   }, []);
+
   useEffect(() => {
     const handleGroupCreated = (e) => {
       const newGroup = e.detail;
@@ -122,6 +127,26 @@ const ChatSidebar = ({
         return updated;
       });
     };
+
+    const handleChannelCreated = (e) => {
+      const newChannel = e.detail;
+      setChannels((prev) => {
+        const updatedChannels = [...prev, newChannel];
+        const cacheKey = `sidebar_channels_${user?.id}`;
+        storage.setSession(cacheKey, JSON.stringify(updatedChannels));
+        return updatedChannels;
+      });
+      setChannelMemberships((prev) => {
+        const updated = {
+          ...prev,
+          [newChannel.id]: { isMember: true, role: "creator" },
+        };
+        const membershipsCacheKey = `sidebar_channel_memberships_${user?.id}`;
+        storage.setSession(membershipsCacheKey, JSON.stringify(updated));
+        return updated;
+      });
+    };
+
     const handleGroupJoined = (e) => {
       const joinedGroup = e.detail;
       setGroups((prev) => {
@@ -144,6 +169,30 @@ const ChatSidebar = ({
         return updated;
       });
     };
+
+    const handleChannelJoined = (e) => {
+      const joinedChannel = e.detail;
+      setChannels((prev) => {
+        const exists = prev.find((c) => c.id === joinedChannel.channelId);
+        if (!exists) {
+          const updatedChannels = [...prev, joinedChannel.channel];
+          const cacheKey = `sidebar_channels_${user?.id}`;
+          storage.setSession(cacheKey, JSON.stringify(updatedChannels));
+          return updatedChannels;
+        }
+        return prev;
+      });
+      setChannelMemberships((prev) => {
+        const updated = {
+          ...prev,
+          [joinedChannel.channelId]: { isMember: true, role: "member" },
+        };
+        const membershipsCacheKey = `sidebar_channel_memberships_${user?.id}`;
+        storage.setSession(membershipsCacheKey, JSON.stringify(updated));
+        return updated;
+      });
+    };
+
     const handleChatDeleted = (e) => {
       const { chatType, chatId, deletedBy } = e.detail;
       if (
@@ -225,6 +274,7 @@ const ChatSidebar = ({
         });
       }
     };
+
     const handleGlobalUserStatusUpdate = (e) => {
       const { userId, isOnline } = e.detail;
       setGroups((prev) =>
@@ -233,6 +283,7 @@ const ChatSidebar = ({
         })
       );
     };
+
     const handleGroupOnlineCountUpdate = (e) => {
       const { groupId, onlineCount } = e.detail;
       setGroups((prev) =>
@@ -262,6 +313,7 @@ const ChatSidebar = ({
         return current;
       });
     };
+
     const handleGroupInfoUpdate = (e) => {
       const { groupId, avatar, updatedBy } = e.detail;
       console.log("рџ“ќ Group info update received:", {
@@ -296,6 +348,30 @@ const ChatSidebar = ({
           storage.setSession(groupsCacheKey, JSON.stringify(current));
           return current;
         });
+        setChannels((current) => {
+          storage.setSession(channelsCacheKey, JSON.stringify(current));
+          return current;
+        });
+      }, 100);
+    };
+
+    const handleChannelInfoUpdate = (e) => {
+      const { channelId, updates, updatedBy } = e.detail;
+      console.log("рџ“ќ Channel info update received:", {
+        channelId,
+        updates,
+        updatedBy,
+      });
+      setChannels((prev) =>
+        prev.map((channel) => {
+          if (channel.id === channelId) {
+            return { ...channel, ...updates };
+          }
+          return channel;
+        })
+      );
+      const channelsCacheKey = `sidebar_channels_${user?.id}`;
+      setTimeout(() => {
         setChannels((current) => {
           storage.setSession(channelsCacheKey, JSON.stringify(current));
           return current;
@@ -353,8 +429,56 @@ const ChatSidebar = ({
       }
     };
 
+    const handleChannelLeft = (e) => {
+      const { channelId, userId } = e.detail;
+      if (parseInt(userId) === parseInt(user?.id)) {
+        setChannels((prev) => {
+          const updatedChannels = prev.filter(
+            (channel) => channel.id !== channelId
+          );
+          const cacheKey = `sidebar_channels_${user?.id}`;
+          storage.setSession(cacheKey, JSON.stringify(updatedChannels));
+          return updatedChannels;
+        });
+        setChannelMemberships((prev) => {
+          const updated = { ...prev };
+          delete updated[channelId];
+          const membershipsCacheKey = `sidebar_channel_memberships_${user?.id}`;
+          storage.setSession(membershipsCacheKey, JSON.stringify(updated));
+          return updated;
+        });
+      }
+    };
+
+    const handleChannelDeleted = (e) => {
+      const { channelId, deletedBy } = e.detail;
+      setChannels((prev) => {
+        const updatedChannels = prev.filter(
+          (channel) => channel.id !== channelId
+        );
+        const cacheKey = `sidebar_channels_${user?.id}`;
+        storage.setSession(cacheKey, JSON.stringify(updatedChannels));
+        return updatedChannels;
+      });
+      setChannelMemberships((prev) => {
+        const updated = { ...prev };
+        delete updated[channelId];
+        const membershipsCacheKey = `sidebar_channel_memberships_${user?.id}`;
+        storage.setSession(membershipsCacheKey, JSON.stringify(updated));
+        return updated;
+      });
+      
+      // If the deleted channel is the current chat, close it
+      if (currentChat && currentChat.id === channelId && currentChatType === 'channel') {
+        onChatSelect(null, null);
+        storage.removeSession("currentChat");
+      }
+    };
+
     window.addEventListener("group-created", handleGroupCreated);
+    window.addEventListener("channel-created", handleChannelCreated);
     window.addEventListener("group-joined", handleGroupJoined);
+    window.addEventListener("channel-joined", handleChannelJoined);
     window.addEventListener("chat-deleted", handleChatDeleted);
     window.addEventListener("private-chat-created", handlePrivateChatCreated);
     window.addEventListener("new-message", handleNewMessage);
@@ -367,7 +491,11 @@ const ChatSidebar = ({
       handleGroupOnlineCountUpdate
     );
     window.addEventListener("group-info-updated", handleGroupInfoUpdate);
-    const handleChannelCreated = async () => {
+    window.addEventListener("channelInfoUpdated", handleChannelInfoUpdate);
+    window.addEventListener("channelLeft", handleChannelLeft);
+    window.addEventListener("channelDeleted", handleChannelDeleted);
+
+    const handleRefreshChannels = async () => {
       const token = storage.getPersistent("chatToken");
       if (!token) return;
       try {
@@ -376,10 +504,13 @@ const ChatSidebar = ({
         console.error("Error refreshing channels after create:", err);
       }
     };
-    window.addEventListener("channel-created", handleChannelCreated);
+    window.addEventListener("channel-created", handleRefreshChannels);
+
     return () => {
       window.removeEventListener("group-created", handleGroupCreated);
+      window.removeEventListener("channel-created", handleChannelCreated);
       window.removeEventListener("group-joined", handleGroupJoined);
+      window.removeEventListener("channel-joined", handleChannelJoined);
       window.removeEventListener("chat-deleted", handleChatDeleted);
       window.removeEventListener(
         "private-chat-created",
@@ -395,9 +526,13 @@ const ChatSidebar = ({
         handleGroupOnlineCountUpdate
       );
       window.removeEventListener("group-info-updated", handleGroupInfoUpdate);
-      window.removeEventListener("channel-created", handleChannelCreated);
+      window.removeEventListener("channelInfoUpdated", handleChannelInfoUpdate);
+      window.removeEventListener("channelLeft", handleChannelLeft);
+      window.removeEventListener("channelDeleted", handleChannelDeleted);
+      window.removeEventListener("channel-created", handleRefreshChannels);
     };
   }, [user]);
+
   const fetchUserData = async () => {
     const token = storage.getPersistent("chatToken");
     if (!token) {
@@ -420,6 +555,7 @@ const ChatSidebar = ({
       }
     }
   };
+
   const fetchGroups = async (token) => {
     try {
       const data = await getUserGroups(token);
@@ -430,6 +566,7 @@ const ChatSidebar = ({
       console.error("Error fetching groups:", error);
     }
   };
+
   const fetchChannels = async (token) => {
     try {
       const data = await getUserChannels(token);
@@ -440,6 +577,7 @@ const ChatSidebar = ({
       console.error("Error fetching channels:", error);
     }
   };
+
   const checkAllGroupMemberships = async (token, groupsList) => {
     const memberships = {};
     for (const group of groupsList) {
@@ -456,6 +594,7 @@ const ChatSidebar = ({
     }
     setGroupMemberships(memberships);
   };
+
   const checkAllChannelMemberships = async (token, channelsList) => {
     const memberships = {};
     for (const ch of channelsList) {
@@ -471,6 +610,7 @@ const ChatSidebar = ({
     const membershipsCacheKey = `sidebar_channel_memberships_${user?.id}`;
     storage.setSession(membershipsCacheKey, JSON.stringify(memberships));
   };
+
   const fetchPrivateChats = async (token) => {
     try {
       const data = await getPrivateChats(token);
@@ -491,6 +631,7 @@ const ChatSidebar = ({
       storage.removeSession(cacheKey);
     }
   };
+
   const handleJoinGroup = async (groupId) => {
     try {
       const token = storage.getPersistent("chatToken");
@@ -510,6 +651,7 @@ const ChatSidebar = ({
       });
     }
   };
+
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
 
@@ -542,6 +684,7 @@ const ChatSidebar = ({
       });
     }
   };
+
   const handleJoinChannel = async (channelId) => {
     try {
       const token = storage.getPersistent("chatToken");
@@ -560,6 +703,7 @@ const ChatSidebar = ({
       });
     }
   };
+
   const handleLeaveChannel = async (channelId) => {
     try {
       const token = storage.getPersistent("chatToken");
@@ -578,6 +722,7 @@ const ChatSidebar = ({
       });
     }
   };
+
   const handleSearch = async (query) => {
     setSearchQuery(query);
     if (!query.trim() || query.length < 2) {
@@ -655,6 +800,7 @@ const ChatSidebar = ({
       setIsSearching(false);
     }
   };
+
   const findLocalResults = (query, type) => {
     const results = { users: [], groups: [] };
     const queryLower = query.toLowerCase();
@@ -679,6 +825,7 @@ const ChatSidebar = ({
     }
     return results;
   };
+
   const handleStartPrivateChat = async (targetUser) => {
     try {
       const token = storage.getPersistent("chatToken");
@@ -730,10 +877,12 @@ const ChatSidebar = ({
       });
     }
   };
+
   const selectChat = (chat, type) => {
     clearUnreadCount(type, chat.id);
     onChatSelect({ ...chat, type }, type);
   };
+
   return (
     <div className="w-96 bg-sidebar border-r border-sidebar-border flex flex-col h-screen overflow-hidden text-sidebar-foreground">
       <div className="p-4 pl-1 border-b border-sidebar-border" style={{paddingTop: "30px"}}>
@@ -845,7 +994,7 @@ const ChatSidebar = ({
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
                           <p className="font-medium text-gray-900">
-                            {user.username}
+                            {user.firstName} {user.lastName}
                           </p>
                           <OnlineStatusIndicator
                             isOnline={
@@ -860,7 +1009,7 @@ const ChatSidebar = ({
                           />
                         </div>
                         <p className="text-sm text-gray-500">
-                          {user.firstName} {user.lastName}
+                          {user.username}
                         </p>
                       </div>
                       <Button variant="ghost" size="sm">
@@ -1097,9 +1246,9 @@ const ChatSidebar = ({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
                         <p className="font-medium text-gray-900 truncate">
-                          {chat.otherUser?.username ||
-                            chat.user?.username ||
-                            "Unknown"}
+
+                          {chat.otherUser?.firstName || chat.user?.username ||
+                            "Unknown"} {chat.otherUser?.lastName || ""}
                         </p>
                       </div>
                       <p className="text-sm text-gray-500 truncate">

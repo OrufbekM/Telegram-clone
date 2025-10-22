@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/use-toast";
@@ -16,6 +16,7 @@ import CreateGroupDialog from "./CreateGroupDialog";
 import CreateChannelDialog from "./CreateChannelDialog";
 import UserInfoDialog from "./UserInfoDialog";
 import EntityInfoDialog from "./EntityInfoDialog";
+
 const ChatApp = () => {
   const [user, setUser] = useState(null);
   const [currentChat, setCurrentChat] = useState(null);
@@ -36,6 +37,7 @@ const ChatApp = () => {
   const { getPrivateChats } = useUsers();
   const { clearChatHistory, deleteChat } = useChat();
   const { toast } = useToast();
+
   const handleStatusUpdate = (statusData) => {
     const { userId, isOnline, lastSeen } = statusData;
     setUserStatuses(prev => {
@@ -66,6 +68,7 @@ const ChatApp = () => {
       return newStatuses;
     });
   };
+
   const handleWebSocketMessage = (messageData) => {
     if (messageData) {
       if (messageData.chatId) {
@@ -102,12 +105,15 @@ const ChatApp = () => {
       }
     }
   };
+
   const { socket, getCurrentSocket, sendChatViewEvent, sendMessageViewEvent, endMessageViewEvent, clearChatHistory: clearHistoryViaWebSocket } = useSocket(user?.id, handleWebSocketMessage, handleStatusUpdate);
+
   useEffect(() => {
     if (user) {
       loadAllChats();
     }
   }, [user]);
+
   useEffect(() => {
     if (currentChat && chatType && user?.id) {
       const cacheKey = `currentChat_${user.id}`;
@@ -115,6 +121,7 @@ const ChatApp = () => {
       storage.setPersistent('currentChat', JSON.stringify({ chat: currentChat, type: chatType }));
     }
   }, [currentChat, chatType, user?.id]);
+
   useEffect(() => {
     if (user?.id && !currentChat && !chatId && hasLoadedChats && !isChatsLoading) {
       const userCacheKey = `currentChat_${user.id}`;
@@ -139,6 +146,7 @@ const ChatApp = () => {
       }
     }
   }, [user?.id, chatId, navigate, hasLoadedChats, isChatsLoading, currentChat, allChats]);
+
   useEffect(() => {
     const token = storage.getPersistent("chatToken");
     const userData = storage.getPersistent("chatUser");
@@ -151,11 +159,13 @@ const ChatApp = () => {
       }
     }
   }, []);
+
   useEffect(() => {
     const handler = (e) => setUserInfo(e.detail);
     window.addEventListener("open-user-info", handler);
     return () => window.removeEventListener("open-user-info", handler);
   }, []);
+
   useEffect(() => {
     const handleChatDeleted = (e) => {
       const { chatType, chatId } = e.detail || {};
@@ -169,9 +179,11 @@ const ChatApp = () => {
         navigate('/chat', { replace: true });
       }
     };
+
     window.addEventListener('chat-deleted', handleChatDeleted);
     return () => window.removeEventListener('chat-deleted', handleChatDeleted);
   }, [currentChat, user?.id, navigate]);
+
   useEffect(() => {
     const startHandler = (e) => {
       window.dispatchEvent(
@@ -181,12 +193,14 @@ const ChatApp = () => {
     window.addEventListener("start-private-chat", startHandler);
     return () => window.removeEventListener("start-private-chat", startHandler);
   }, []);
+
   useEffect(() => {
     const openCreateChannel = () => setShowCreateChannelDialog(true);
     window.addEventListener("open-create-channel", openCreateChannel);
     return () =>
       window.removeEventListener("open-create-channel", openCreateChannel);
   }, []);
+
   useEffect(() => {
     // After a channel is created, reload chats so it appears in the list
     const handleChannelCreated = async () => {
@@ -195,6 +209,7 @@ const ChatApp = () => {
     window.addEventListener('channel-created', handleChannelCreated);
     return () => window.removeEventListener('channel-created', handleChannelCreated);
   }, [user]);
+
   useEffect(() => {
     const handleCurrentChatUpdate = (event) => {
       const { chatId, updates } = event.detail;
@@ -205,6 +220,7 @@ const ChatApp = () => {
         }));
       }
     };
+
     const handleOnlineCountUpdate = (event) => {
       const { groupId, onlineCount } = event.detail;
       if (currentChat && currentChat.id === groupId && (chatType === 'group' || chatType === 'channel')) {
@@ -223,6 +239,7 @@ const ChatApp = () => {
         )
       }));
     };
+
     const handleGroupInfoUpdate = (event) => {
       const { groupId, avatar, updatedBy } = event.detail;
       console.log('рџ“ќ ChatApp: Group info update received:', { groupId, avatar, updatedBy });
@@ -253,15 +270,110 @@ const ChatApp = () => {
         })
       }));
     };
+
+    const handleChannelInfoUpdate = (event) => {
+      const { channelId, updates, updatedBy } = event.detail;
+      console.log('рџ“ќ ChatApp: Channel info update received:', { channelId, updates, updatedBy });
+      if (currentChat && currentChat.id === channelId && chatType === 'channel') {
+        setCurrentChat(prev => ({
+          ...prev,
+          ...updates
+        }));
+      }
+      setAllChats(prev => ({
+        ...prev,
+        channels: prev.channels.map(channel => {
+          if (channel.id === channelId) {
+            return { ...channel, ...updates };
+          }
+          return channel;
+        })
+      }));
+    };
+
+    const handleUserProfileUpdate = (event) => {
+      const { userId, updates } = event.detail;
+      console.log('рџ“ќ ChatApp: User profile update received:', { userId, updates });
+      
+      // Update user info in all chats where this user appears
+      setAllChats(prev => ({
+        ...prev,
+        privateChats: prev.privateChats.map(chat => {
+          if (chat.otherUser && chat.otherUser.id === userId) {
+            return {
+              ...chat,
+              otherUser: {
+                ...chat.otherUser,
+                ...updates
+              }
+            };
+          }
+          return chat;
+        }),
+        groups: prev.groups.map(group => {
+          // Update group members if this user is in the group
+          if (group.members) {
+            const updatedMembers = group.members.map(member => {
+              if (member.id === userId) {
+                return {
+                  ...member,
+                  ...updates
+                };
+              }
+              return member;
+            });
+            return {
+              ...group,
+              members: updatedMembers
+            };
+          }
+          return group;
+        }),
+        channels: prev.channels.map(channel => {
+          // Update channel members if this user is in the channel
+          if (channel.members) {
+            const updatedMembers = channel.members.map(member => {
+              if (member.id === userId) {
+                return {
+                  ...member,
+                  ...updates
+                };
+              }
+              return member;
+            });
+            return {
+              ...channel,
+              members: updatedMembers
+            };
+          }
+          return channel;
+        })
+      }));
+      
+      // Update current user if it's their own profile
+      if (user && user.id === userId) {
+        setUser(prev => ({
+          ...prev,
+          ...updates
+        }));
+      }
+    };
+
     window.addEventListener('update-current-chat', handleCurrentChatUpdate);
     window.addEventListener('group-online-count-updated', handleOnlineCountUpdate);
     window.addEventListener('group-info-updated', handleGroupInfoUpdate);
+    window.addEventListener('channelInfoUpdated', handleChannelInfoUpdate);
+    window.addEventListener('userProfileUpdated', handleUserProfileUpdate);
+    
     return () => {
       window.removeEventListener('update-current-chat', handleCurrentChatUpdate);
       window.removeEventListener('group-online-count-updated', handleOnlineCountUpdate);
       window.removeEventListener('group-info-updated', handleGroupInfoUpdate);
+      window.removeEventListener('channelInfoUpdated', handleChannelInfoUpdate);
+      window.removeEventListener('userProfileUpdated', handleUserProfileUpdate);
     };
-  }, [currentChat, chatType]);
+  }, [currentChat, chatType, user]);
+
   useEffect(() => {
     const handleDeletedChatError = (e) => {
       const { chatType, chatId, error } = e.detail;
@@ -278,6 +390,7 @@ const ChatApp = () => {
     window.addEventListener("chat-deleted-error", handleDeletedChatError);
     return () => window.removeEventListener("chat-deleted-error", handleDeletedChatError);
   }, [currentChat, navigate]);
+
   useEffect(() => {
     const handleClearHistorySuccess = (e) => {
       const { chatType, chatId, clearedBy } = e.detail;
@@ -289,6 +402,7 @@ const ChatApp = () => {
     window.addEventListener("clear-history-success", handleClearHistorySuccess);
     return () => window.removeEventListener("clear-history-success", handleClearHistorySuccess);
   }, []);
+
   useEffect(() => {
     const handleClearHistoryError = (e) => {
       const { chatType, chatId, error } = e.detail;
@@ -301,6 +415,7 @@ const ChatApp = () => {
     window.addEventListener("clear-history-error", handleClearHistoryError);
     return () => window.removeEventListener("clear-history-error", handleClearHistoryError);
   }, []);
+
   const loadAllChats = async () => {
     const token = storage.getPersistent("chatToken");
     if (!token) return;
@@ -313,6 +428,7 @@ const ChatApp = () => {
         getUserChannels(token),
         getPrivateChats(token)
       ]);
+
       const newChats = {
         groups: groupsData.groups || [],
         channels: channelsData.channels || [],
@@ -331,6 +447,7 @@ const ChatApp = () => {
       setIsChatsLoading(false);
     }
   };
+
   const selectChatFromUrl = (chatId) => {
     console.log('рџ”Ќ SelectChatFromUrl called with chatId:', chatId);
     console.log('рџ“‹ Available chats:', { 
@@ -372,6 +489,7 @@ const ChatApp = () => {
       navigate('/chat', { replace: true });
     }
   };
+
   const fetchUserProfile = async (token, userId) => {
     try {
       const userData = await getUserProfile(token, userId);
@@ -380,10 +498,12 @@ const ChatApp = () => {
       console.error("Error fetching user profile:", error);
     }
   };
+
   const handleAuthSuccess = (userData) => {
     setUser(userData);
     fetchUserProfile(storage.getPersistent("chatToken"), userData.id);
   };
+
   const handleChatSelect = (chat, type) => {
     const currentChatId = currentChat?.id || currentChat?.chatId;
     const newChatId = chat.id || chat.chatId;
@@ -394,6 +514,7 @@ const ChatApp = () => {
       navigate(targetUrl);
     }, 0);
   };
+
   const handleDeleteChat = async (chat, type) => {
     try {
       const token = storage.getPersistent("chatToken");
@@ -463,6 +584,7 @@ const ChatApp = () => {
       });
     }
   };
+
   const handleClearHistory = async (chat, type) => {
     try {
       const token = storage.getPersistent("chatToken");
@@ -500,13 +622,17 @@ const ChatApp = () => {
       });
     }
   };
+
   const handleCreateGroup = () => {
     setShowCreateGroupDialog(true);
   };
+
   const handleGroupCreated = () => {
   };
+
   const handleChannelCreated = () => {
   };
+
   const handleLogout = () => {
     storage.removePersistent("chatToken");
     storage.removePersistent("chatUser");
@@ -524,11 +650,14 @@ const ChatApp = () => {
       description: "Tizimdan chiqildi",
     });
   };
+
   const handleMessageSent = (message) => {
   };
+
   if (!user) {
     return <LoginScreen onAuthSuccess={handleAuthSuccess} />;
   }
+
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex">
       <ChatSidebar
@@ -587,5 +716,5 @@ const ChatApp = () => {
     </div>
   );
 };
-export default ChatApp;
 
+export default ChatApp;
