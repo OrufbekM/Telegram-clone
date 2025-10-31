@@ -202,6 +202,13 @@ const ChatApp = () => {
   }, []);
 
   useEffect(() => {
+    const openCreateGroup = () => setShowCreateGroupDialog(true);
+    window.addEventListener("open-create-group", openCreateGroup);
+    return () =>
+      window.removeEventListener("open-create-group", openCreateGroup);
+  }, []);
+
+  useEffect(() => {
     // After a channel is created, reload chats so it appears in the list
     const handleChannelCreated = async () => {
       await loadAllChats();

@@ -15,24 +15,40 @@ import {
   LogOut,
   Plus,
   Megaphone,
-  
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { storage } from '../utils/storageUtils';
-import ProfileDialog from './ProfileDialog'; // Changed from MyProfile to ProfileDialog
+import { toAbsoluteUrl } from '../config/api';
+import ProfileDialog from './ProfileDialog';
+import SettingsModal from './SettingsModal';
+import LogoutConfirmDialog from './LogoutConfirmDialog';
 
-const API_URL = 'http://localhost:3000';
-
-const toAbsoluteUrl = (url) => {
-  if (!url) return '';
-  return url.startsWith('http') ? url : `${API_URL}${url}`;
+const formatLastSeen = (timestamp) => {
+  if (!timestamp) return 'recently';
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
+const ProfileSheet = ({
+  open,
+  onOpenChange,
+  user,
+  onLogout,
+  userStatuses = {},
+}) => {
+  const isOnline = userStatuses[user?.id]?.isOnline ?? user?.isOnline ?? false;
+  const lastSeen = userStatuses[user?.id]?.lastSeen ?? user?.lastSeen;
   const { logout } = useAuth();
   const [isMyProfileOpen, setIsMyProfileOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
   const handleLogout = async () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogoutConfirm = async () => {
     try {
       const token = storage.getPersistent('chatToken');
       if (token) {
@@ -41,18 +57,19 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
       if (onLogout) {
         onLogout();
       }
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Logout error:', error);
       if (typeof window !== 'undefined') {
         storage.removePersistent('chatToken');
         storage.removePersistent('chatUser');
         storage.clearSessionData();
       }
-      if (onLogout) {
-        onLogout();
-      }
+      setShowLogoutConfirm(false);
+    } catch (error) {
+      console.error('Logout error:', error);
     }
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutConfirm(false);
   };
 
   const handleOpenMyProfile = () => {
@@ -61,20 +78,28 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
     setIsMyProfileOpen(true);
   };
 
+  const handleOpenSettings = () => { 
+    // Close the ProfileSheet when opening Settings modal
+    onOpenChange(false);
+    setIsSettingsOpen(true);
+  };
+
   const menuItems = [
     { icon: User, label: 'My Profile', action: handleOpenMyProfile },
+    { icon: Settings, label: 'Settings', action: handleOpenSettings }, 
+
   ];
 
   const createActionItems = [
     { icon: Megaphone, label: 'Add Channel', action: () => { 
         console.log('Add Channel');
-        window.dispatchEvent(new Event('open-create-channel'));
+        window.dispatchEvent(new CustomEvent('open-create-channel'));
         onOpenChange(false);
       } 
     },
     { icon: Users, label: 'Add Group', action: () => { 
         console.log('Add Group');
-        window.dispatchEvent(new Event('open-create-group'));
+        window.dispatchEvent(new CustomEvent('open-create-group'));
         onOpenChange(false);
       } 
     },
@@ -85,7 +110,7 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="w-80 p-0">
+        <SheetContent side="left" className="w-80 p-0 dark:bg-black">
           <SheetHeader className="p-4 border-b">
             <div className="flex items-center space-x-3">
               <Avatar className="w-12 h-12">
@@ -96,7 +121,12 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
                 <div className="flex items-center">
                   <p className="font-semibold">{user?.username || 'Username'}</p>
                 </div>
-                <p className="text-xs text-green-700">Online</p>
+                <div className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {isOnline ? 'Online' : lastSeen ? `Last seen ${formatLastSeen(lastSeen)}` : 'Offline'}
+                  </p>
+                </div>
               </div>
             </div>
           </SheetHeader>
@@ -108,9 +138,9 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
                 <button
                   key={index}
                   onClick={item.action}
-                  className="flex items-center w-full px-4 py-3 text-left hover:bg-gray-100"
+                  className="flex items-center w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-blue-800 text-gray-500 group dark:hover:text-white"
                 >
-                  <item.icon className="w-5 h-5 mr-3 text-gray-500" />
+                  <item.icon className="w-5 h-5 mr-3 text-gray-500  dark:group-hover:text-white " />
                   <span className="flex-1">{item.label}</span>
                   {item.hasToggle && (
                     <div className="relative inline-block w-10 mr-2 align-middle select-none">
@@ -138,9 +168,9 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
                 <button
                   key={index}
                   onClick={item.action}
-                  className="flex items-center w-full px-4 py-3 text-left hover:bg-gray-100"
+                  className="flex items-center w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-blue-800 text-gray-500 group dark:hover:text-white"
                 >
-                  <item.icon className="w-5 h-5 mr-3 text-gray-500" />
+                  <item.icon className="w-5 h-5 mr-3 text-gray-500 dark:group-hover:text-white  " />
                   <span className="flex-1">{item.label}</span>
                 </button>
               ))}
@@ -150,7 +180,7 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
             <div className="border-t py-1">
               <button
                 onClick={handleLogout}
-                className="flex items-center w-full px-4 py-3 text-left hover:bg-gray-100 text-red-500"
+                className="flex items-center w-full px-4 py-3 text-left hover:bg-gray-100 text-red-500 dark:hover:bg-blue-800 dark:hover:text-red-200"
               >
                 <LogOut className="w-5 h-5 mr-3" />
                 <span className="flex-1">Log Out</span>
@@ -164,7 +194,20 @@ const ProfileSheet = ({ open, onOpenChange, user, onLogout }) => {
       <ProfileDialog 
         open={isMyProfileOpen} 
         onOpenChange={setIsMyProfileOpen} 
-        onLogout={onLogout} // Pass onLogout prop
+        onLogout={handleLogout}
+        userStatuses={userStatuses}
+      />
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onOpenChange={setShowLogoutConfirm}
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+      />
+      
+      {/* Settings Modal */}
+      <SettingsModal 
+        open={isSettingsOpen} 
+        onOpenChange={setIsSettingsOpen} 
       />
     </>
   );

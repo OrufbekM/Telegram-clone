@@ -1,8 +1,9 @@
-﻿import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import OnlineStatusIndicator from './OnlineStatusIndicator'
 import { storage } from '../utils/storageUtils'
 import { User, Phone, AtSign, MessageSquare, FileText, Circle } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -15,21 +16,6 @@ const toAbsoluteUrl = (url) => {
   return url.startsWith('http') ? url : `${API_URL}${url}`
 }
 
-const formatLastSeen = (lastSeen) => {
-  if (!lastSeen) return 'offline'
-  
-  const date = new Date(lastSeen)
-  const now = new Date()
-  const diffInMinutes = Math.floor((now - date) / (1000 * 60))
-  
-  if (diffInMinutes < 1) return 'last seen just now'
-  if (diffInMinutes < 60) return `last seen ${diffInMinutes} minutes ago`
-  
-  const diffInHours = Math.floor(diffInMinutes / 60)
-  if (diffInHours < 24) return `last seen ${diffInHours} hours ago`
-  
-  return `last seen ${date.toLocaleDateString()}`
-}
 
 const UserInfoDialog = ({ open, onOpenChange, user }) => {
   const [userInfo, setUserInfo] = useState({ 
@@ -48,21 +34,68 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
 
+  const updateUserInfo = useCallback((userData) => {
+    setUserInfo(prev => ({
+      ...prev,
+      username: userData.username || prev.username,
+      email: userData.email || prev.email,
+      firstName: userData.firstName || prev.firstName,
+      lastName: userData.lastName || prev.lastName,
+      bio: userData.bio || prev.bio,
+      avatar: userData.avatar || prev.avatar,
+      phone: userData.phone || prev.phone,
+      isOnline: userData.isOnline !== undefined ? userData.isOnline : prev.isOnline,
+      lastSeen: userData.lastSeen || prev.lastSeen
+    }));
+  }, []);
+
   useEffect(() => {
     if (open && user) {
-      setUserInfo({
-        username: user.username || '',
-        email: user.email || '',
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        bio: user.bio || '',
-        avatar: user.avatar || '',
-        phone: user.phone || '',
-        isOnline: user.isOnline || false,
-        lastSeen: user.lastSeen || null
-      })
+      updateUserInfo({
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        bio: user.bio,
+        avatar: user.avatar,
+        phone: user.phone,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen
+      });
     }
-  }, [open, user])
+  }, [open, user, updateUserInfo]);
+
+  // Listen for WebSocket updates
+  useEffect(() => {
+    if (!open || !user?.id) return;
+
+    const handleProfileUpdate = (event) => {
+      const { userId, updates } = event.detail;
+      if (userId === user.id) {
+        console.log('🔄 Received profile update for user:', userId, updates);
+        updateUserInfo(updates);
+      }
+    };
+
+    const handleStatusUpdate = (event) => {
+      const { userId, isOnline, lastSeen } = event.detail;
+      if (userId === user.id) {
+        console.log('🔄 Received status update for user:', userId, { isOnline, lastSeen });
+        updateUserInfo({
+          isOnline,
+          lastSeen
+        });
+      }
+    };
+
+    window.addEventListener('user-profile-updated', handleProfileUpdate);
+    window.addEventListener('user-status-update-global', handleStatusUpdate);
+
+    return () => {
+      window.removeEventListener('user-profile-updated', handleProfileUpdate);
+      window.removeEventListener('user-status-update-global', handleStatusUpdate);
+    };
+  }, [open, user?.id, updateUserInfo]);
 
   const initial = (userInfo.username || 'U')[0].toUpperCase()
   
@@ -130,15 +163,13 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
             <div>
               <h2 className="text-xl font-semibold text-foreground">{userInfo.firstName} {userInfo.lastName}</h2>
               <div className="flex items-center mt-1">
-                {userInfo.isOnline ? (
-                  <>
-                    <span className="text-green-600 text-sm">online</span>
-                  </>
-                ) : (
-                  <span className="text-gray-500 text-sm">
-                    {userInfo.lastSeen ? formatLastSeen(userInfo.lastSeen) : 'offline'}
-                  </span>
-                )}
+                <OnlineStatusIndicator 
+                  isOnline={userInfo.isOnline} 
+                  lastSeen={userInfo.lastSeen}
+                  username={`${userInfo.firstName} ${userInfo.lastName}`}
+                  showText={true}
+                  size="sm"
+                />
               </div>
             </div>
           </div>

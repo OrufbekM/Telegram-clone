@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -91,6 +91,61 @@ const ChatSidebar = ({
     clearUnreadCount,
     incrementUnreadCount,
   } = useUnreadMessages(user, currentChat, currentChatType);
+
+  // Handle profile updates via WebSocket
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      const { userId, updates } = event.detail;
+      
+      // Update private chats
+      setPrivateChats(prevChats => 
+        prevChats.map(chat => {
+          if (chat.user.id === userId) {
+            return {
+              ...chat,
+              user: {
+                ...chat.user,
+                ...updates
+              }
+            };
+          }
+          return chat;
+        })
+      );
+
+      // Update group members
+      setGroups(prevGroups => 
+        prevGroups.map(group => {
+          const updatedMembers = group.members?.map(member => 
+            member.id === userId ? { ...member, ...updates } : member
+          );
+          return {
+            ...group,
+            members: updatedMembers || group.members
+          };
+        })
+      );
+
+      // Update channel members
+      setChannels(prevChannels => 
+        prevChannels.map(channel => {
+          const updatedMembers = channel.members?.map(member => 
+            member.id === userId ? { ...member, ...updates } : member
+          );
+          return {
+            ...channel,
+            members: updatedMembers || channel.members
+          };
+        })
+      );
+    };
+
+    window.addEventListener('user-profile-updated', handleProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('user-profile-updated', handleProfileUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -272,6 +327,50 @@ const ChatSidebar = ({
           storage.setSession(cacheKey, JSON.stringify(updatedChats));
           return updatedChats;
         });
+      } else if (message.chatType === "group") {
+        // Handle group message updates
+        setGroups((prev) => {
+          const updatedGroups = prev.map((group) => {
+            if (group.id === message.chatId) {
+              return {
+                ...group,
+                lastMessage: {
+                  id: message.id,
+                  content: message.content,
+                  timestamp: message.timestamp,
+                  userId: message.user?.id,
+                },
+                lastMessageAt: message.timestamp,
+              };
+            }
+            return group;
+          });
+          const cacheKey = `sidebar_groups_${user?.id}`;
+          storage.setSession(cacheKey, JSON.stringify(updatedGroups));
+          return updatedGroups;
+        });
+      } else if (message.chatType === "channel") {
+        // Handle channel message updates
+        setChannels((prev) => {
+          const updatedChannels = prev.map((channel) => {
+            if (channel.id === message.chatId) {
+              return {
+                ...channel,
+                lastMessage: {
+                  id: message.id,
+                  content: message.content,
+                  timestamp: message.timestamp,
+                  userId: message.user?.id,
+                },
+                lastMessageAt: message.timestamp,
+              };
+            }
+            return channel;
+          });
+          const cacheKey = `sidebar_channels_${user?.id}`;
+          storage.setSession(cacheKey, JSON.stringify(updatedChannels));
+          return updatedChannels;
+        });
       }
     };
 
@@ -426,6 +525,50 @@ const ChatSidebar = ({
           storage.setSession(cacheKey, JSON.stringify(updatedChats));
           return updatedChats;
         });
+      } else if (message && message.chatType === "group") {
+        // Handle group message updates
+        setGroups((prev) => {
+          const updatedGroups = prev.map((group) => {
+            if (group.id === message.chatId) {
+              return {
+                ...group,
+                lastMessage: {
+                  id: message.id,
+                  content: message.content,
+                  timestamp: message.timestamp,
+                  userId: message.user?.id,
+                },
+                lastMessageAt: message.timestamp,
+              };
+            }
+            return group;
+          });
+          const cacheKey = `sidebar_groups_${user?.id}`;
+          storage.setSession(cacheKey, JSON.stringify(updatedGroups));
+          return updatedGroups;
+        });
+      } else if (message && message.chatType === "channel") {
+        // Handle channel message updates
+        setChannels((prev) => {
+          const updatedChannels = prev.map((channel) => {
+            if (channel.id === message.chatId) {
+              return {
+                ...channel,
+                lastMessage: {
+                  id: message.id,
+                  content: message.content,
+                  timestamp: message.timestamp,
+                  userId: message.user?.id,
+                },
+                lastMessageAt: message.timestamp,
+              };
+            }
+            return channel;
+          });
+          const cacheKey = `sidebar_channels_${user?.id}`;
+          storage.setSession(cacheKey, JSON.stringify(updatedChannels));
+          return updatedChannels;
+        });
       }
     };
 
@@ -475,6 +618,39 @@ const ChatSidebar = ({
       }
     };
 
+    // Add listener for message read events to update unread counts
+    const handleMessageRead = (e) => {
+      const { chatType, chatId } = e.detail;
+      // This will trigger a re-render to update unread counts
+      if (chatType === "private") {
+        setPrivateChats(prev => [...prev]);
+      } else if (chatType === "group") {
+        setGroups(prev => [...prev]);
+      } else if (chatType === "channel") {
+        setChannels(prev => [...prev]);
+      }
+    };
+
+    // Add listener for user profile updates
+    const handleUserProfileUpdate = (e) => {
+      const updatedUser = e.detail;
+      // Update private chats with updated user info
+      setPrivateChats(prev => 
+        prev.map(chat => {
+          if (chat.otherUser?.id === updatedUser.id) {
+            return {
+              ...chat,
+              otherUser: {
+                ...chat.otherUser,
+                ...updatedUser
+              }
+            };
+          }
+          return chat;
+        })
+      );
+    };
+
     window.addEventListener("group-created", handleGroupCreated);
     window.addEventListener("channel-created", handleChannelCreated);
     window.addEventListener("group-joined", handleGroupJoined);
@@ -482,18 +658,15 @@ const ChatSidebar = ({
     window.addEventListener("chat-deleted", handleChatDeleted);
     window.addEventListener("private-chat-created", handlePrivateChatCreated);
     window.addEventListener("new-message", handleNewMessage);
-    window.addEventListener(
-      "user-status-update-global",
-      handleGlobalUserStatusUpdate
-    );
-    window.addEventListener(
-      "group-online-count-updated",
-      handleGroupOnlineCountUpdate
-    );
+    window.addEventListener("message", handleRealTimeMessage);
+    window.addEventListener("user-status-update-global", handleGlobalUserStatusUpdate);
+    window.addEventListener("group-online-count-updated", handleGroupOnlineCountUpdate);
     window.addEventListener("group-info-updated", handleGroupInfoUpdate);
     window.addEventListener("channelInfoUpdated", handleChannelInfoUpdate);
     window.addEventListener("channelLeft", handleChannelLeft);
     window.addEventListener("channelDeleted", handleChannelDeleted);
+    window.addEventListener("message-read", handleMessageRead);
+    window.addEventListener("userProfileUpdated", handleUserProfileUpdate);
 
     const handleRefreshChannels = async () => {
       const token = storage.getPersistent("chatToken");
@@ -512,26 +685,20 @@ const ChatSidebar = ({
       window.removeEventListener("group-joined", handleGroupJoined);
       window.removeEventListener("channel-joined", handleChannelJoined);
       window.removeEventListener("chat-deleted", handleChatDeleted);
-      window.removeEventListener(
-        "private-chat-created",
-        handlePrivateChatCreated
-      );
+      window.removeEventListener("private-chat-created", handlePrivateChatCreated);
       window.removeEventListener("new-message", handleNewMessage);
-      window.removeEventListener(
-        "user-status-update-global",
-        handleGlobalUserStatusUpdate
-      );
-      window.removeEventListener(
-        "group-online-count-updated",
-        handleGroupOnlineCountUpdate
-      );
+      window.removeEventListener("message", handleRealTimeMessage);
+      window.removeEventListener("user-status-update-global", handleGlobalUserStatusUpdate);
+      window.removeEventListener("group-online-count-updated", handleGroupOnlineCountUpdate);
       window.removeEventListener("group-info-updated", handleGroupInfoUpdate);
       window.removeEventListener("channelInfoUpdated", handleChannelInfoUpdate);
       window.removeEventListener("channelLeft", handleChannelLeft);
       window.removeEventListener("channelDeleted", handleChannelDeleted);
+      window.removeEventListener("message-read", handleMessageRead);
+      window.removeEventListener("userProfileUpdated", handleUserProfileUpdate);
       window.removeEventListener("channel-created", handleRefreshChannels);
     };
-  }, [user]);
+  }, [user, currentChat, onChatSelect]);
 
   const fetchUserData = async () => {
     const token = storage.getPersistent("chatToken");
@@ -970,15 +1137,11 @@ const ChatSidebar = ({
               {}
               {searchResults.users.length > 0 && (
                 <div>
-                  <div className="p-3 bg-gray-50">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">
-                      Foydalanuvchilar
-                    </h3>
-                  </div>
+                
                   {searchResults.users.map((user) => (
                     <div
                       key={user.id}
-                      className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
+                      className="flex items-center p-3 hover:bg-gray-50 cursor-pointer dark:text-gray-100 dark:hover:bg-blue-900/30"
                       onClick={() => handleStartPrivateChat(user)}>
                       <Avatar className="w-10 h-10 mr-3">
                         {user?.avatar && (
@@ -993,7 +1156,7 @@ const ChatSidebar = ({
                       </Avatar>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-gray-900 dark:text-gray-400">
                             {user.firstName} {user.lastName}
                           </p>
                           <OnlineStatusIndicator
@@ -1008,7 +1171,7 @@ const ChatSidebar = ({
                             debug={user.username}
                           />
                         </div>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 text-gray-900 dark:text-gray-400">
                           {user.username}
                         </p>
                       </div>
@@ -1023,17 +1186,12 @@ const ChatSidebar = ({
               {searchResults.groups.filter((group) => group.type === "group")
                 .length > 0 && (
                 <div>
-                  <div className="p-3 bg-gray-50">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">
-                      Guruhlar
-                    </h3>
-                  </div>
                   {searchResults.groups
                     .filter((group) => group.type === "group")
                     .map((group) => (
                       <div
                         key={group.id}
-                        className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
+                        className="flex items-center p-3 hover:bg-gray-50 cursor-pointer dark:text-gray-100 dark:hover:bg-blue-900/30"
                         onClick={() => onChatSelect(group, "group")}
                         onDoubleClick={() =>
                           setInfoEntity({ type: "group", data: group })
@@ -1051,7 +1209,7 @@ const ChatSidebar = ({
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center">
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-gray-900 text-gray-900 dark:text-gray-400">
                               {group.name}
                             </p>
                             {group.isPrivate && (
@@ -1082,17 +1240,12 @@ const ChatSidebar = ({
               {searchResults.groups.filter((group) => group.type === "channel")
                 .length > 0 && (
                 <div>
-                  <div className="p-3 bg-gray-50">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">
-                      Kanallar
-                    </h3>
-                  </div>
                   {searchResults.groups
                     .filter((group) => group.type === "channel")
                     .map((channel) => (
                       <div
                         key={channel.id}
-                        className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
+                        className="flex items-center p-3 hover:bg-gray-50 cursor-pointer dark:text-gray-100 dark:hover:bg-blue-900/30"
                         onClick={() => onChatSelect(channel, "channel")}
                         onDoubleClick={() =>
                           setInfoEntity({ type: "channel", data: channel })
@@ -1110,7 +1263,7 @@ const ChatSidebar = ({
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center">
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-gray-900 text-gray-900 dark:text-gray-400">
                               {channel.name}
                             </p>
                             {channel.isPrivate && (
@@ -1122,15 +1275,7 @@ const ChatSidebar = ({
                           </p>
                           <div className="flex items-center space-x-2 text-xs text-gray-400">
                             <span>{channel.memberCount || 0} a'zo</span>
-                            {channelMemberships[channel.id]?.isMember &&
-                              channel.onlineMembersCount !== undefined && (
-                                <>
-                                  <span>•</span>
-                                  <span className="text-green-600">
-                                    {channel.onlineMembersCount} onlayn
-                                  </span>
-                                </>
-                              )}
+                            
                           </div>
                         </div>
                       </div>
@@ -1207,19 +1352,15 @@ const ChatSidebar = ({
             {}
             {(activeTab === "all" || activeTab === "users") && (
               <div className="p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-700">
-                    Private Chatlar
-                  </h3>
-                </div>
+                
                 {privateChats.map((chat) => (
                   <div
                     key={chat.chatId || chat.id}
                     className={`flex items-center p-2 rounded-lg cursor-pointer mb-1 ${
                       currentChat?.id === (chat.chatId || chat.id) &&
                       currentChat?.type === "private"
-                        ? "bg-blue-50"
-                        : "hover:bg-gray-50"
+                        ? "bg-blue-50 dark:bg-gray-900"
+                        : "hover:bg-gray-50 hover:dark:bg-gray-900  "
                     }`}
                     onClick={() =>
                       selectChat(
@@ -1245,7 +1386,7 @@ const ChatSidebar = ({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <p className="font-medium text-gray-900 truncate">
+                        <p className="font-medium text-gray-900 truncate dark:text-gray-400">
 
                           {chat.otherUser?.firstName || chat.user?.username ||
                             "Unknown"} {chat.otherUser?.lastName || ""}
@@ -1274,11 +1415,6 @@ const ChatSidebar = ({
             {}
             {(activeTab === "all" || activeTab === "groups") && (
               <div className="p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-700">
-                    Guruhlar
-                  </h3>
-                </div>
                 {groups
                   .filter((group) => group.type === "group")
                   .map((group) => (
@@ -1287,8 +1423,8 @@ const ChatSidebar = ({
                       className={`flex items-center p-2 rounded-lg cursor-pointer mb-1 ${
                         currentChat?.id === group.id &&
                         currentChat?.type === "group"
-                          ? "bg-blue-50"
-                          : "hover:bg-gray-50"
+                          ? "bg-blue-50 dark:bg-gray-900"
+                          : "hover:bg-gray-50 hover:dark:bg-gray-900"
                       }`}
                       onClick={() => selectChat(group, "group")}>
                       <Avatar className="w-10 h-10 mr-3">
@@ -1304,7 +1440,7 @@ const ChatSidebar = ({
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center">
-                          <p className="font-medium text-gray-900 truncate">
+                          <p className="font-medium text-gray-900 truncate dark:text-gray-400">
                             {group.name}
                           </p>
                           {group.isPrivate && (
@@ -1347,19 +1483,14 @@ const ChatSidebar = ({
             )}
             {(activeTab === "all" || activeTab === "channels") && (
               <div className="p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-700">
-                    Kanallar
-                  </h3>
-                </div>
                 {channels.map((channel) => (
                   <div
                     key={channel.id}
                     className={`flex items-center p-2 rounded-lg cursor-pointer mb-1 ${
                       currentChat?.id === channel.id &&
                       currentChat?.type === "channel"
-                        ? "bg-blue-50"
-                        : "hover:bg-gray-50"
+                        ? "bg-blue-50 dark:bg-gray-900"
+                        : "hover:bg-gray-50 hover:dark:bg-gray-900"
                     }`}
                     onClick={() => selectChat(channel, "channel")}>
                     <Avatar className="w-10 h-10 mr-3">
@@ -1375,7 +1506,7 @@ const ChatSidebar = ({
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center">
-                        <p className="font-medium text-gray-900 truncate">
+                        <p className="font-medium text-gray-900 truncate dark:text-gray-400">
                           {channel.name}
                         </p>
                         {channel.isPrivate && (
@@ -1413,11 +1544,13 @@ const ChatSidebar = ({
         open={isProfileOpen}
         onOpenChange={setIsProfileOpen}
         onLogout={onLogout}
+        userStatuses={userStatuses}
       />
       <ProfileSheet
         open={isProfileSheetOpen}
         onOpenChange={setIsProfileSheetOpen}
         user={user}
+        userStatuses={userStatuses}
         onLogout={onLogout}
       />
       {infoEntity && (

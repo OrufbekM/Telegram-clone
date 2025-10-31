@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+ import React, { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -257,7 +257,38 @@ const ChatArea = ({
     };
   }, []);
 
-  // Add effect to handle image preview events
+  // Add effect  // Handle profile updates via WebSocket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleProfileUpdate = (event) => {
+      const { userId, updates } = event.detail;
+      
+      // Update messages if the sender's profile was updated
+      setMessages(prevMessages => 
+        prevMessages.map(msg => {
+          if (msg.senderId === userId) {
+            return {
+              ...msg,
+              sender: {
+                ...msg.sender,
+                ...updates
+              }
+            };
+          }
+          return msg;
+        })
+      );
+    };
+
+    window.addEventListener('user-profile-updated', handleProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('user-profile-updated', handleProfileUpdate);
+    };
+  }, [socket]);
+
+  // Handle WebSocket connection
   useEffect(() => {
     const handleImagePreview = (event) => {
       setImagePreviewData(event.detail);
@@ -1484,18 +1515,17 @@ const ChatArea = ({
             {chatType === "private" && currentChat.user && (
               <OnlineStatusIndicator
                 isOnline={
-                  userStatuses[currentChat.user.id]?.isOnline ??
-                  currentChat.user.isOnline ??
+                  userStatuses[currentChat.user.id]?.isOnline ?? 
+                  currentChat.user.isOnline ?? 
                   false
                 }
                 lastSeen={
-                  userStatuses[currentChat.user.id]?.lastSeen ??
+                  userStatuses[currentChat.user.id]?.lastSeen ?? 
                   currentChat.user.lastSeen
                 }
-                size="sm"
-                showText={true}
+                size="xs"
                 username={currentChat.user.username}
-                debug={currentChat.user.username?.includes("test")}
+                debug={currentChat.user.username}
               />
             )}
           </div>
@@ -1508,7 +1538,7 @@ const ChatArea = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-10 w-10 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
               onClick={() => setShowGroupInfo(true)}
               title={
                 chatType === "channel"
@@ -1524,7 +1554,7 @@ const ChatArea = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-10 w-10 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
               onClick={(e) => {
                 e.stopPropagation();
                 setShowMenu(!showMenu);
@@ -1773,6 +1803,7 @@ const ChatArea = ({
                           >
                             {msg.content}
                             <div className="flex items-center justify-end gap-1 mt-2">
+                              {/* Channel view count */}
                               {chatType === "channel" && (
                                 <div className="flex items-center gap-1">
                                   <Eye className="w-4 h-4 text-gray-500" />
@@ -1861,46 +1892,22 @@ const ChatArea = ({
                               {chatType === "channel" && (
                                 <div className="flex items-center gap-1">
                                   <Eye className="w-4 h-4 text-gray-500" />
-                                  <span
-                                    className={`text-xs text-gray-500`}
-                                    title="Ko'rilganlar soni">
-                                   
-                                    {Array.isArray(messageReaders)
-                                      ? messageReaders.length
-                                      : 0}
+                                  <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                                    {Array.isArray(messageReaders) ? messageReaders.length : 0}
                                   </span>
                                 </div>
                               )}
-                               <span
-                                className={`text-xs  ${
-                                  chatType === "channel"
-                                    ? "text-gray-500"
-                                    : isSelf
-                                    ? "text-blue-200"
-                                    : "text-gray-500"
-                                }`}>
+                               <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
                                 {msg.isEdited && "edited • "}
-                                {new Date(msg.timestamp).toLocaleTimeString(
-                                  "uz-UZ",
-                                  {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )}
+                                {new Date(msg.timestamp).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
                               </span>
 
                               {isSelf && chatType !== 'channel' && (
                                 <div>
                                   {isRead ? (
-                                    <CheckCheck
-                                      className="w-4 h-4 text-blue-300"
-                                      title={`${messageReaders.length} kishi o'qidi`}
-                                    />
+                                    <CheckCheck className="w-4 h-4 text-blue-300" title={`${messageReaders.length} kishi o'qidi`} />
                                   ) : (
-                                    <Check
-                                      className="w-4 h-4 text-blue-300"
-                                      title="Yuborildi"
-                                    />
+                                    <Check className="w-4 h-4 text-blue-300" title="Yuborildi" />
                                   )}
                                 </div>
                               )}
@@ -1926,45 +1933,21 @@ const ChatArea = ({
                               {chatType === "channel" && (
                                 <div className="flex items-center gap-1">
                                   <Eye className="w-4 h-4 text-gray-500" />
-                                  <span
-                                    className={`text-xs text-gray-500`}
-                                    title="Ko'rilganlar soni">
-                                   
-                                    {Array.isArray(messageReaders)
-                                      ? messageReaders.length
-                                      : 0}
+                                  <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                                    {Array.isArray(messageReaders) ? messageReaders.length : 0}
                                   </span>
                                 </div>
                               )}
-                              <span
-                                className={`text-xs  ${
-                                  chatType === "channel"
-                                    ? "text-gray-600"
-                                    : isSelf
-                                    ? "text-blue-200"
-                                    : "text-gray-600"
-                                }`}>
+                              <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
                                 {msg.isEdited && "edited • "}
-                                {new Date(msg.timestamp).toLocaleTimeString(
-                                  "uz-UZ",
-                                  {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )}
+                                {new Date(msg.timestamp).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
                               </span>
                               {isSelf && chatType !== 'channel' && (
                                 <div>
                                   {isRead ? (
-                                    <CheckCheck
-                                      className="w-4 h-4 text-blue-300"
-                                      title={`${messageReaders.length} kishi o'qidi`}
-                                    />
+                                    <CheckCheck className="w-4 h-4 text-blue-300" title={`${messageReaders.length} kishi o'qidi`} />
                                   ) : (
-                                    <Check
-                                      className="w-4 h-4 text-blue-300"
-                                      title="Yuborildi"
-                                    />
+                                    <Check className="w-4 h-4 text-blue-300" title="Yuborildi" />
                                   )}
                                 </div>
                               )}
@@ -2087,7 +2070,7 @@ const ChatArea = ({
           <div className="absolute bottom-4 right-4">
             <Button
               size="icon"
-              className="h-10 w-10 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600 text-white"
+              className="h-10 w-10 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-600 dark:hover:bg-blue-700"
               onClick={jumpToBottom}>
               <ChevronDown className="h-5 w-5" />
               {newMessagesCount > 0 && (

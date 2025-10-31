@@ -1,5 +1,6 @@
-﻿import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import apiClient from '../../services/api-Client'
+const WS_URL = 'ws://localhost:3000'
 export const useAuth = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -40,11 +41,25 @@ export const useAuth = () => {
       return handleError(err, 'Profil ma\'lumotlarini olishda xatolik')
     }
   }
-  const updateProfile = async (token, profileData) => {
+  const updateProfile = async (token, profileData, socket = null) => {
     setIsLoading(true)
     setError(null)
     try {
-      const { data } = await apiClient.put('/users/profile', profileData)
+      const { data } = await apiClient.put('/users/profile', profileData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      // Emit profile update event through WebSocket if socket is provided
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: 'profile_update',
+          data: { user: data.user || data }
+        }));
+      }
+      
       return data
     } catch (err) {
       return handleError(err, 'Profilni yangilashda xatolik')

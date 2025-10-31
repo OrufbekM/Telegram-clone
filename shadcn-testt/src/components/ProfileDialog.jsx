@@ -1,4 +1,4 @@
-﻿﻿import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
@@ -8,13 +8,15 @@ import LogoutConfirmDialog from './LogoutConfirmDialog'
 import { storage } from '../utils/storageUtils'
 import { MoreVertical, User, Phone, AtSign, Edit3, LogOut, MessageSquare, FileText } from 'lucide-react' // Updated imports
 
-const API_URL = 'http://localhost:3000'
-const toAbsoluteUrl = (url) => {
-  if (!url) return ''
-  return url.startsWith('http') ? url : `${API_URL}${url}`
-}
+import { toAbsoluteUrl } from '../config/api'
 
-const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
+const formatLastSeen = (timestamp) => {
+  if (!timestamp) return 'recently';
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket, onProfileUpdate }) => {
   const token = typeof window !== 'undefined' ? storage.getPersistent('chatToken') : null
   const storedUser = typeof window !== 'undefined' ? JSON.parse(storage.getPersistent('chatUser') || '{}') : {}
   const [profile, setProfile] = useState({ username: '', email: '', firstName: '', lastName: '', bio: '', avatar: '', phone: '' })
@@ -24,6 +26,8 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
   const [uploading, setUploading] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState(null)
+  const [selectedFile, setSelectedFile] = useState(null)
   const { getUserProfile, updateProfile, uploadAvatar, updateAvatar, logout } = useAuth()
 
   // Added useEffect to handle click outside to close menu
@@ -42,80 +46,154 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
 
   useEffect(() => {
     const load = async () => {
-      if (!open || !token || !storedUser?.id) return
+      if (!open || !token || !storedUser?.id) return;
       try {
-        const data = await getUserProfile(token, storedUser.id)
-        const p = data?.user || data
-        setProfile({
+        const data = await getUserProfile(token, storedUser.id);
+        const p = data?.user || data;
+        const updatedProfile = {
           username: p?.username || storedUser.username || '',
           email: p?.email || storedUser.email || '',
           firstName: p?.firstName || '',
           lastName: p?.lastName || '',
           bio: p?.bio || '',
           avatar: p?.avatar || '',
-          phone: p?.phone || '' // Added phone field
-        })
-        setForm({ 
-          username: p?.username || storedUser.username || '', 
-          firstName: p?.firstName || '', 
-          lastName: p?.lastName || '', 
-          bio: p?.bio || '',
-          phone: p?.phone || '' // Added phone field
-        })
-      } catch (_) {
-        setProfile({
+          phone: p?.phone || ''
+        };
+        setProfile(updatedProfile);
+        setForm({
+          username: updatedProfile.username,
+          firstName: updatedProfile.firstName,
+          lastName: updatedProfile.lastName,
+          bio: updatedProfile.bio,
+          phone: updatedProfile.phone
+        });
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        const fallbackProfile = {
           username: storedUser.username || '',
           email: storedUser.email || '',
           firstName: storedUser.firstName || '',
           lastName: storedUser.lastName || '',
           bio: storedUser.bio || '',
           avatar: storedUser.avatar || '',
-          phone: storedUser.phone || '' // Added phone field
-        })
-        setForm({ 
-          username: storedUser.username || '', 
-          firstName: storedUser.firstName || '', 
-          lastName: storedUser.lastName || '', 
-          bio: storedUser.bio || '',
-          phone: storedUser.phone || '' // Added phone field
-        })
+          phone: storedUser.phone || ''
+        };
+        setProfile(fallbackProfile);
+        setForm({
+          username: fallbackProfile.username,
+          firstName: fallbackProfile.firstName,
+          lastName: fallbackProfile.lastName,
+          bio: fallbackProfile.bio,
+          phone: fallbackProfile.phone
+        });
       }
-    }
-    load()
-  }, [open])
+    };
+
+    load();
+
+    // Listen for profile updates from WebSocket
+    const handleProfileUpdate = (event) => {
+      const { userId: updatedUserId, updates } = event.detail;
+      if (updatedUserId === storedUser?.id) {
+        console.log('🔄 Profile updated via WebSocket:', updates);
+        setProfile(prev => ({
+          ...prev,
+          ...updates
+        }));
+        
+        // Also update the form if we're not currently editing
+        if (!isEditing) {
+          setForm(prev => ({
+            ...prev,
+            ...updates
+          }));
+        }
+        
+        // Update stored user data if needed
+        if (updates.avatar) {
+          const updatedUser = { ...storedUser, ...updates };
+          storage.setPersistent('chatUser', JSON.stringify(updatedUser));
+        }
+      }
+    };
+
+    window.addEventListener('user-profile-updated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('user-profile-updated', handleProfileUpdate);
+    };
+  }, [open, isEditing]);
 
   const handleSave = async (e) => {
     e.preventDefault()
     if (!token) return
     try {
       setLoading(true)
-      const updated = await updateProfile(token, form)
+      
+      // If there's a selected file, upload it first
+      let avatarUrl = profile.avatar
+      let avatarUpdated = false
+      
+      if (selectedFile) {
+        const uploadRes = await uploadAvatar(token, selectedFile)
+        if (uploadRes?.user?.avatar) {
+          avatarUrl = uploadRes.user.avatar
+        }
+      }
+      
+      // Update profile with new data and possibly new avatar
+      const updated = await updateProfile(token, { ...form, avatar: avatarUrl }, socket)
       const merged = { ...storedUser, ...updated.user }
       storage.setPersistent('chatUser', JSON.stringify(merged))
       setProfile(p => ({ ...p, ...updated.user }))
+      setSelectedFile(null)
+      setAvatarPreview(null)
       setIsEditing(false)
+      
+      // Notify parent component about the profile update
+      if (onProfileUpdate) {
+        onProfileUpdate(updated.user)
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file || !token) return
-    try {
-      setUploading(true)
-      const res = await uploadAvatar(token, file)
-      if (res && res.user) {
-        const merged = { ...storedUser, ...res.user }
-        storage.setPersistent('chatUser', JSON.stringify(merged))
-        setProfile(p => ({ ...p, ...res.user }))
+  useEffect(() => {
+    // Cleanup function to revoke object URLs when component unmounts or when avatarPreview changes
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
       }
-    } catch (error) {
-      console.error('Avatar upload error:', error)
-    } finally {
-      setUploading(false)
+    };
+  }, [avatarPreview]);
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+      alert('Iltimos, faqat rasm fayllarini yuklang');
+      return;
     }
-  }
+    
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    
+    // Clean up previous preview URL if it exists
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+    
+    setAvatarPreview(previewUrl);
+    setSelectedFile(file);
+    
+    // Also update the form to show the new avatar immediately in the preview
+    setForm(prev => ({
+      ...prev,
+      avatar: previewUrl
+    }));
+  };
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true)
@@ -165,7 +243,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-background text-foreground p-0 overflow-hidden" showCloseButton={false}>
         <DialogHeader className="text-primary-foreground items-start p-6" >
-          <DialogTitle className="text-xl text-black font-bold text-center">My Profil</DialogTitle>
+          <DialogTitle className="text-xl text-black font-bold text-center dark:text-white">My Profil</DialogTitle>
           <div className="absolute top-4 right-4 profile-menu">
             <Button
               variant="ghost"
@@ -176,7 +254,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
                 setShowMenu(!showMenu);
               }}
             >
-              <MoreVertical className="h-5 w-5" />
+              <MoreVertical className="h-5 w-5 dark:text-white" />
             </Button>
             {showMenu && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-background rounded-md shadow-lg border border-border py-1 z-50">
@@ -184,7 +262,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
                   onClick={() => handleMenuOptionClick('edit')}
                   className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-accent"
                 >
-                  <Edit3 className="h-4 w-4 mr-2" />
+                  <Edit3 className="h-4 w-4 mr-2 " />
                   Tahrirlash
                 </button>
                 <button
@@ -201,15 +279,29 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
         {}
         {!isEditing && (
           <div className="p-6">
-            <div className="flex  flex-row items- mb-6 gap-4">
-              <Avatar className="w-19 h-19 mb-4">
-                {profile.avatar && <AvatarImage src={toAbsoluteUrl(profile.avatar)} alt="avatar" />}
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">{initial}</AvatarFallback>
+            <div className="flex flex-row items-center mb-6 gap-4">
+              <Avatar className="w-19 h-19">
+                {(avatarPreview || profile.avatar) ? (
+                  <AvatarImage 
+                    src={avatarPreview || toAbsoluteUrl(profile.avatar)} 
+                    alt="avatar" 
+                    className="object-cover w-full h-full"
+                  />
+                ) : null}
+                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                  {initial}
+                </AvatarFallback>
               </Avatar>
               <div>
                   <h2 className="text-xl font-semibold text-foreground">{profile.firstName} {profile.lastName}</h2>
 
-              <p className='text-xs text-green-700' >Online</p>
+              <div className="flex items-center gap-1">
+                <span className={`w-2 h-2 rounded-full ${userStatuses[storedUser.id]?.isOnline ? 'bg-green-500' : 'bg-green-400'}`}></span>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  {userStatuses[storedUser.id]?.isOnline ? 'Online' : 
+                   userStatuses[storedUser.id]?.lastSeen ? `Last seen ${formatLastSeen(userStatuses[storedUser.id].lastSeen)}` : 'Online'}
+                </p>
+              </div>
               </div>
               
             
@@ -261,11 +353,25 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
           <form onSubmit={handleSave} className="p-6">
             <div className="flex flex-col items-center mb-6">
               <Avatar className="w-20 h-20 mb-4">
-                {profile.avatar && <AvatarImage src={toAbsoluteUrl(profile.avatar)} alt="avatar" />}
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">{initial}</AvatarFallback>
+                {(avatarPreview || profile.avatar) ? (
+                  <AvatarImage 
+                    src={avatarPreview || toAbsoluteUrl(profile.avatar)} 
+                    alt="avatar" 
+                    className="object-cover w-full h-full"
+                  />
+                ) : null}
+                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                  {initial}
+                </AvatarFallback>
               </Avatar>
               <label className="inline-flex items-center px-4 py-2 rounded-md border cursor-pointer text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} disabled={uploading} />
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleAvatarChange} 
+                  disabled={uploading} 
+                />
                 {uploading ? 'Yuklanmoqda...' : 'Avatar yuklash'}
               </label>
             </div>
@@ -324,7 +430,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout }) => {
             
             <div className="flex space-x-3 mt-6">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setIsEditing(false)}>Bekor qilish</Button>
-              <Button type="submit" className="flex-1" disabled={loading}>{loading ? 'Saqlanmoqda...' : 'Saqlash'}</Button>
+              <Button type="submit" className="flex-1 dark:bg-blue-900 dark:text-white" disabled={loading}>{loading ? 'Saqlanmoqda...' : 'Saqlash'}</Button>
             </div>
           </form>
         )}
