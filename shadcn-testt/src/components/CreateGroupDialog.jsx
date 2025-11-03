@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react'
+import React, { useState } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -33,7 +33,7 @@ const CreateGroupDialog = ({ open, onOpenChange, onGroupCreated }) => {
   }
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>Yangi guruh yaratish</DialogTitle>
         </DialogHeader>
@@ -46,13 +46,9 @@ const CreateGroupDialog = ({ open, onOpenChange, onGroupCreated }) => {
             <Label htmlFor="groupDescription">Tavsif</Label>
             <Input id="groupDescription" value={groupForm.description} onChange={(e) => setGroupForm(prev => ({ ...prev, description: e.target.value }))} />
           </div>
-          <div className="flex items-center space-x-2">
-            <input type="checkbox" id="isPrivate" checked={groupForm.isPrivate} onChange={(e) => setGroupForm(prev => ({ ...prev, isPrivate: e.target.checked }))} />
-            <Label htmlFor="isPrivate">Maxfiy guruh</Label>
-          </div>
           <div className="flex space-x-2">
             <Button type="button" variant="outline" onClick={handleClose} className="flex-1">Bekor qilish</Button>
-            <Button type="submit" className="flex-1" disabled={isLoading}>{isLoading ? 'Yaratilmoqda...' : 'Guruh yaratish'}</Button>
+            <Button type="submit" className="flex-1 dark:bg-blue-900 dark:text-white" disabled={isLoading}>{isLoading ? 'Yaratilmoqda...' : 'Guruh yaratish'}</Button>
           </div>
         </form>
       </DialogContent>

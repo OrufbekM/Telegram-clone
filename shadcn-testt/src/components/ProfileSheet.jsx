@@ -110,7 +110,7 @@ const ProfileSheet = ({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="w-80 p-0 dark:bg-black">
+        <SheetContent side="left" className="w-80 p-0 dark:bg-gray-900">
           <SheetHeader className="p-4 border-b">
             <div className="flex items-center space-x-3">
               <Avatar className="w-12 h-12">

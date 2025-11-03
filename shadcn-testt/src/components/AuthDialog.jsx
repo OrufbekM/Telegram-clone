@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react'
+import React, { useState } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -66,12 +66,12 @@ const AuthDialog = ({ onAuthSuccess }) => {
   return (
     <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
       <DialogTrigger asChild>
-        <Button className="w-full" size="lg">
-          <User className="w-4 h-4 mr-2" />
+        <Button className="w-full dark:bg-blue-900 dark:text-white" size="lg">
+          <User className="w-4 h-4 mr-2 " />
           Tizimga kirish
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md dark:bg-gray-900 dark:text-white">
         <DialogHeader>
           <DialogTitle>
             {authMode === 'signin' ? 'Tizimga kirish' : 'Ro\'yxatdan o\'tish'}
@@ -109,15 +109,15 @@ const AuthDialog = ({ onAuthSuccess }) => {
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full dark:bg-blue-900 dark:text-white" disabled={isLoading}>
             {isLoading ? 'Kutilmoqda...' : (authMode === 'signin' ? 'Kirish' : 'Ro\'yxatdan o\'tish')}
           </Button>
         </form>
-        <div className="text-center">
+        <div className="text-center">   
           <button
             type="button"
             onClick={switchMode}
-            className="text-sm text-blue-600 hover:underline"
+            className="text-sm text-blue-600 hover:underline dark:text-blue-400"
           >
             {authMode === 'signin' ? 'Hisobingiz yo\'qmi? Ro\'yxatdan o\'ting' : 'Hisobingiz bormi? Tizimga kiring'}
           </button>

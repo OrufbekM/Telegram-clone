@@ -36,7 +36,7 @@ const SettingsModal = ({ open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>

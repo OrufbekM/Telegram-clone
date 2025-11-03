@@ -40,6 +40,7 @@ import VoiceMessagePlayer from "./VoiceMessagePlayer";
 import { useTyping } from "../hooks/useTyping";
 import { storage } from "../utils/storageUtils";
 import { ImagePreview } from "./ImagePreview";
+import GroupLeaveModal from "./GroupLeaveModal";
 
 const ChatArea = ({
   currentChat,
@@ -1387,8 +1388,8 @@ const ChatArea = ({
     channelStatus?.role === "creator" || channelStatus?.role === "admin";
 
   return (
-    <div className="flex-1 flex flex-col bg-white h-full">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
+    <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 h-full">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
         <div className="flex items-center space-x-3">
           <div
             className="cursor-pointer  rounded-lg p-2 -m-2 transition-colors"
@@ -1492,13 +1493,13 @@ const ChatArea = ({
                 ? "Kanal ma'lumotlarini ko'rish"
                 : "Foydalanuvchi ma'lumotlari"
             }>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
               {chatType === "group" || chatType === "channel"
                 ? currentChat.name
                 : `${currentChat.user.firstName} ${currentChat.user.lastName}` || "Private chat"}
             </h2>
             {(chatType === "group" || chatType === "channel") && (
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-slate-400">
                 <span>{currentChat.memberCount || 0} a'zo</span>
                 {isGroupMember &&
                   currentChat.onlineMembersCount !== undefined && (
@@ -1538,7 +1539,7 @@ const ChatArea = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-10 w-10 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="h-10 w-10 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
               onClick={() => setShowGroupInfo(true)}
               title={
                 chatType === "channel"
@@ -1554,7 +1555,7 @@ const ChatArea = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-10 w-10 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="h-10 w-10 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
               onClick={(e) => {
                 e.stopPropagation();
                 setShowMenu(!showMenu);
@@ -1564,11 +1565,11 @@ const ChatArea = ({
 
             {/* Dropdown menu */}
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 chat-header-menu">
+              <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 py-1 z-50 chat-header-menu">
                 {/* Clear history: only for group/channel admins */}
                 {(chatType === 'group' && isGroupMember) || (chatType === 'channel' && isChannelWriter) ? (
                   <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (onClearHistory) {
@@ -1583,7 +1584,7 @@ const ChatArea = ({
                 {/* Leave channel */}
                 {chatType === 'channel' && channelStatus?.isMember && (
                   <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-600 text-red-600 flex items-center"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleChannelLeave();
@@ -1596,7 +1597,7 @@ const ChatArea = ({
                 {/* Private chat delete option */}
                 {chatType === "private" && (
                   <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 border-b border-gray-100 flex items-center"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-600 text-red-600 border-b border-gray-100 dark:border-slate-700 flex items-center"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (onDeleteChat) {
@@ -1613,7 +1614,7 @@ const ChatArea = ({
                   <>
                     {groupStatus?.role === "creator" && (
                       <button
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 border-b border-gray-100 flex items-center"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-600 text-red-600 border-b border-gray-100 dark:border-slate-700 flex items-center"
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowGroupDeleteModal(true);
@@ -1624,7 +1625,7 @@ const ChatArea = ({
                     )}
 
                     <button
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center"
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowGroupLeaveModal(true);
@@ -1653,7 +1654,7 @@ const ChatArea = ({
 
             {/* Empty state */}
             {!isLoading && messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-slate-400">
                 <MessageCircle className="h-12 w-12 mb-4 opacity-50" />
                 <p className="text-lg font-medium mb-2">Hali xabarlar yo'q</p>
                 <p className="text-sm">Birinchi xabarni yuboring!</p>
@@ -1694,7 +1695,7 @@ const ChatArea = ({
 
                   <div className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl">
                     {!isSelf && (
-                      <div className="text-xs font-medium text-gray-600 mb-1">
+                      <div className="text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">
                         {msg.user?.firstName} {msg.user?.lastName}
                       </div>
                     )}
@@ -1702,7 +1703,7 @@ const ChatArea = ({
                      {isEditing ? (
                       <div
                         className={`p-3 rounded-lg ${
-                          isSelf ? "bg-blue-500 text-white" : "bg-gray-200"
+                          isSelf ? "bg-blue-500 text-white" : "bg-gray-200 dark:bg-slate-800"
                         }`}>
                         <Input
                           value={editingContent}
@@ -1715,7 +1716,7 @@ const ChatArea = ({
                               setEditingContent("");
                             }
                           }}
-                          className="bg-white text-black"
+                          className="bg-white dark:bg-slate-900 text-black dark:text-white"
                           autoFocus
                         />
                         <div className="flex gap-2 mt-2">
@@ -1795,10 +1796,10 @@ const ChatArea = ({
                           <div
                             className={`text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere p-3 ${
                               chatType === "channel"
-                                ? "bg-gray-200 text-gray-900"
+                                ? "bg-gray-200 text-gray-900 dark:bg-slate-800 dark:text-slate-100"
                                 : isSelf
                                 ? "bg-blue-500 text-white"
-                                : "bg-gray-200 text-gray-900"
+                                : "bg-gray-200 text-gray-900 dark:bg-slate-800 dark:text-slate-100"
                             } rounded-b-2xl rounded-t-none`}
                           >
                             {msg.content}
@@ -1806,13 +1807,13 @@ const ChatArea = ({
                               {/* Channel view count */}
                               {chatType === "channel" && (
                                 <div className="flex items-center gap-1">
-                                  <Eye className="w-4 h-4 text-gray-500" />
-                                  <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                                  <Eye className="w-4 h-4 text-gray-500 dark:text-slate-400" />
+                                  <span className={`text-xs ${chatType === "channel" ? "text-gray-600 dark:text-slate-400" : isSelf ? "text-blue-200" : "text-gray-600 dark:text-slate-400"}`}>
                                     {Array.isArray(messageReaders) ? messageReaders.length : 0}
                                   </span>
                                 </div>
                               )}
-                              <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                              <span className={`text-xs ${chatType === "channel" ? "text-gray-600 dark:text-slate-400" : isSelf ? "text-blue-200" : "text-gray-600 dark:text-slate-400"}`}>
                                 {msg.isEdited && "edited • "}
                                 {new Date(msg.timestamp).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
                               </span>
@@ -1879,10 +1880,10 @@ const ChatArea = ({
                           <div
                             className={`text-sm break-words text-left whitespace-pre-wrap overflow-wrap-anywhere p-3 pb-1 rounded-lg ${
                               chatType === "channel"
-                                ? "bg-gray-200 text-gray-900"
+                                ? "bg-gray-200 text-gray-900 dark:bg-slate-800 dark:text-slate-100"
                                 : isSelf
                                 ? "bg-blue-500 text-white"
-                                : "bg-gray-200 text-gray-900"
+                                : "bg-gray-200 text-gray-900 dark:bg-slate-800 dark:text-slate-100"
                             }`}>
                             {msg.content}
                             {/* Footer for text-only messages */}
@@ -1891,13 +1892,13 @@ const ChatArea = ({
                               {/* Channel view count */}
                               {chatType === "channel" && (
                                 <div className="flex items-center gap-1">
-                                  <Eye className="w-4 h-4 text-gray-500" />
-                                  <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                                  <Eye className="w-4 h-4 text-gray-500 dark:text-slate-400" />
+                                  <span className={`text-xs ${chatType === "channel" ? "text-gray-600 dark:text-slate-400" : isSelf ? "text-blue-200" : "text-gray-600 dark:text-slate-400"}`}>
                                     {Array.isArray(messageReaders) ? messageReaders.length : 0}
                                   </span>
                                 </div>
                               )}
-                               <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                               <span className={`text-xs ${chatType === "channel" ? "text-gray-600 dark:text-slate-400" : isSelf ? "text-blue-200" : "text-gray-600 dark:text-slate-400"}`}>
                                 {msg.isEdited && "edited • "}
                                 {new Date(msg.timestamp).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
                               </span>
@@ -1920,10 +1921,10 @@ const ChatArea = ({
                           <div
                             className={`text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere p-3 ${
                               chatType === "channel"
-                                ? "bg-gray-200 text-gray-900"
+                                ? "bg-gray-200 text-gray-900 dark:bg-slate-800 dark:text-slate-100"
                                 : isSelf
                                 ? "bg-blue-500 text-white"
-                                : "bg-gray-200 text-gray-900"
+                                : "bg-gray-200 text-gray-900 dark:bg-slate-800 dark:text-slate-100"
                             } rounded-b-2xl rounded-t-none`}>
                             {msg.content}
                             {/* Footer inside the caption bubble to avoid white background */}
@@ -1932,13 +1933,13 @@ const ChatArea = ({
                               {/* Channel view count */}
                               {chatType === "channel" && (
                                 <div className="flex items-center gap-1">
-                                  <Eye className="w-4 h-4 text-gray-500" />
-                                  <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                                  <Eye className="w-4 h-4 text-gray-500 dark:text-slate-400" />
+                                  <span className={`text-xs ${chatType === "channel" ? "text-gray-600 dark:text-slate-400" : isSelf ? "text-blue-200" : "text-gray-600 dark:text-slate-400"}`}>
                                     {Array.isArray(messageReaders) ? messageReaders.length : 0}
                                   </span>
                                 </div>
                               )}
-                              <span className={`text-xs ${chatType === "channel" ? "text-gray-600" : isSelf ? "text-blue-200" : "text-gray-600"}`}>
+                              <span className={`text-xs ${chatType === "channel" ? "text-gray-600 dark:text-slate-400" : isSelf ? "text-blue-200" : "text-gray-600 dark:text-slate-400"}`}>
                                 {msg.isEdited && "edited • "}
                                 {new Date(msg.timestamp).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
                               </span>
@@ -1960,10 +1961,10 @@ const ChatArea = ({
                           <div
                             className={`text-sm break-words whitespace-pre-wrap overflow-wrap-anywhere p-3 rounded-lg mt-2 ${
                               chatType === "channel"
-                                ? "bg-gray-200 text-gray-900"
+                                ? "bg-gray-200 text-gray-900 dark:bg-slate-800 dark:text-slate-100"
                                 : isSelf
                                 ? "bg-blue-500 text-white"
-                                : "bg-gray-200 text-gray-900"
+                                : "bg-gray-200 text-gray-900 dark:bg-slate-800 dark:text-slate-100"
                             }`}>
                             {msg.content}
                           </div>
@@ -1976,18 +1977,18 @@ const ChatArea = ({
                               msg.image && msg.content
                                 ? "px-3 pb-2"
                                 : msg.image && !msg.content
-                                ? "absolute bottom-2 right-2 bg-black bg-opacity-50 rounded px-2 py-1"
+                                ? "absolute bottom-2 right-2 bg-black dark:bg-slate-900 bg-opacity-50 rounded px-2 py-1"
                                 : "px-2 py-1"
                             }`}>
                             <span
                               className={`text-xs ${
                                 msg.image && !msg.content
-                                  ? "text-white"
+                                  ? "text-white dark:text-slate-100"
                                   : chatType === "channel"
-                                  ? "text-gray-500"
+                                  ? "text-gray-500 dark:text-slate-400"
                                   : isSelf
                                   ? "text-blue-200"
-                                  : "text-gray-500"
+                                  : "text-gray-500 dark:text-slate-400"
                               }`}>
                               {msg.isEdited && "edited • "}
                               {new Date(msg.timestamp).toLocaleTimeString(
@@ -2003,8 +2004,8 @@ const ChatArea = ({
                               <span
                                 className={`text-xs ${
                                   msg.image && !msg.content
-                                    ? "text-white"
-                                    : "text-gray-400"
+                                    ? "text-white dark:text-slate-100"
+                                    : "text-gray-400 dark:text-slate-400"
                                 }`}
                                 title="Ko'rilganlar soni">
                                 {Array.isArray(messageReaders)
@@ -2019,10 +2020,10 @@ const ChatArea = ({
                                   <CheckCheck
                                     className={`w-4 h-4 ${
                                       msg.image && !msg.content
-                                        ? "text-white"
+                                        ? "text-white dark:text-slate-100"
                                         : isSelf
                                         ? "text-blue-300"
-                                        : "text-gray-400"
+                                        : "text-gray-400 dark:text-slate-400"
                                     }`}
                                     title={`${messageReaders.length} `}
                                   />
@@ -2030,10 +2031,10 @@ const ChatArea = ({
                                   <Check
                                     className={`w-4 h-4 ${
                                       msg.image && !msg.content
-                                        ? "text-white"
+                                        ? "text-white dark:text-slate-100"
                                         : isSelf
                                         ? "text-blue-300"
-                                        : "text-gray-400"
+                                        : "text-gray-400 dark:text-slate-400"
                                     }`}
                                     title="Yuborildi"
                                   />
@@ -2057,7 +2058,7 @@ const ChatArea = ({
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"></div>
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
                 </div>
-                <span className="text-sm text-gray-500">{typingText}</span>
+                <span className="text-sm text-gray-500 dark:text-slate-400">{typingText}</span>
               </div>
             )}
 
@@ -2070,11 +2071,11 @@ const ChatArea = ({
           <div className="absolute bottom-4 right-4">
             <Button
               size="icon"
-              className="h-10 w-10 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-600 dark:hover:bg-blue-700"
+              className="h-10 w-10 rounded-full shadow-lg bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700"
               onClick={jumpToBottom}>
               <ChevronDown className="h-5 w-5" />
               {newMessagesCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {newMessagesCount > 99 ? "99+" : newMessagesCount}
                 </span>
               )}
@@ -2085,12 +2086,12 @@ const ChatArea = ({
 
       {/* Group join section */}
       {chatType === "group" && !isGroupMember && (
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="p-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900">
           <div className="text-center">
-            <p className="text-gray-600 mb-3">Bu guruhga a'zo bo'lmagan siz</p>
+            <p className="text-gray-600 dark:text-slate-400 mb-3">Bu guruhga a'zo bo'lmagan siz</p>
             <Button
               onClick={handleJoinGroup}
-              className="bg-blue-500 hover:bg-blue-600 text-white">
+              className="bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white">
               Guruhga qo'shilish
             </Button>
           </div>
@@ -2099,9 +2100,9 @@ const ChatArea = ({
 
       {/* Channel join section */}
       {chatType === "channel" && !channelStatus?.isMember && (
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="p-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900">
           <div className="text-center">
-            <p className="text-gray-600 mb-3">Bu kanalga a'zo emassiz</p>
+            <p className="text-gray-600 dark:text-slate-400 mb-3">Bu kanalga a'zo emassiz</p>
             <Button
               onClick={async () => {
                 try {
@@ -2122,7 +2123,7 @@ const ChatArea = ({
                   });
                 }
               }}
-              className="bg-blue-500 hover:bg-blue-600 text-white">
+              className="bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white">
               Kanalga qo'shilish
             </Button>
           </div>
@@ -2131,9 +2132,9 @@ const ChatArea = ({
 
       {/* Message input */}
       {(chatType === "private" ||
-        isGroupMember ||
-        (chatType === "channel" && isChannelWriter)) && (
-        <div className="p-4 border-t border-gray-200 bg-white">
+        (chatType === "group" && isGroupMember) ||
+        (chatType === "channel" && channelStatus?.isMember && isChannelWriter)) && (
+        <div className="p-4 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div className="flex items-end space-x-2">
             {/* Emoji Picker */}
             <EmojiPicker
@@ -2154,16 +2155,16 @@ const ChatArea = ({
 
             {/* Voice Recording UI */}
             {isRecording && (
-              <div className="flex-1 flex items-center space-x-3 bg-red-50 rounded-lg px-4 py-2">
+              <div className="flex-1 flex items-center space-x-3 bg-red-50 dark:bg-red-600 rounded-lg px-4 py-2">
                 <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-red-600 font-medium">
+                <span className="text-red-600 dark:text-red-500 font-medium">
                   Yozilmoqda... {formatRecordingTime(recordingTime)}
                 </span>
                 <div className="flex-1"></div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-gray-500 hover:text-red-600"
+                  className="h-8 w-8 text-gray-500 dark:text-gray-400 hover:text-red-600"
                   onClick={cancelVoiceRecording}
                   title="Bekor qilish">
                   <X className="h-4 w-4" />
@@ -2173,16 +2174,16 @@ const ChatArea = ({
 
             {/* Voice Message Preview */}
             {!isRecording && audioBlob && (
-              <div className="flex-1 flex items-center space-x-3 bg-blue-50 rounded-lg px-4 py-2">
+              <div className="flex-1 flex items-center space-x-3 bg-blue-50 dark:bg-blue-600 rounded-lg px-4 py-2">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="text-blue-600 font-medium">
+                <span className="text-blue-600 dark:text-blue-500 font-medium">
                   Ovozli xabar ({formatRecordingTime(recordingTime)})
                 </span>
                 <div className="flex-1"></div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-gray-500 hover:text-red-600"
+                  className="h-8 w-8 text-gray-500 dark:text-gray-400 hover:text-red-600"
                   onClick={cancelVoiceRecording}
                   title="Bekor qilish">
                   <X className="h-4 w-4" />
@@ -2212,7 +2213,7 @@ const ChatArea = ({
                       }
                     }}
                     placeholder="Xabar yozing..."
-                    className="min-h-[40px] max-h-32 resize-none pr-12"
+                    className="flex-1 min-h-[40px] max-h-32 resize-none rounded-lg border p-2 bg-background dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                     rows={1}
                   />
                 </div>
@@ -2236,8 +2237,8 @@ const ChatArea = ({
                 variant="ghost"
                 className={`h-10 w-10 p-0 flex-shrink-0 rounded-full ${
                   isRecording
-                    ? "bg-red-100 hover:bg-red-200 text-red-600"
-                    : "hover:bg-gray-100"
+                    ? "bg-red-100 dark:bg-red-600 hover:bg-red-200 dark:hover:bg-red-700"
+                    : "hover:bg-gray-100 dark:hover:bg-slate-700"
                 }`}>
                 <Mic className="h-5 w-5" />
               </Button>
@@ -2257,7 +2258,7 @@ const ChatArea = ({
                   (!message?.trim() && !audioBlob) ||
                   (editingMessageId && !editingContent?.trim())
                 }
-                className="h-10 w-10 p-0 flex-shrink-0 rounded-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300">
+                className="h-10 w-10 p-0 flex-shrink-0 rounded-full bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700">
                 <Send className="h-4 w-4 text-white" />
               </Button>
             </div>
@@ -2268,7 +2269,7 @@ const ChatArea = ({
       {/* Context Menu */}
       {contextMenu.visible && (
         <div
-          className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+          className={`fixed bg-white dark:bg-slate-800 shadow-lg rounded-md py-1 z-50 ${contextMenu.visible ? 'block' : 'hidden'}`}
           style={{
             left: Math.min(Math.max(8, contextMenu.x), window.innerWidth - 105),
             top: Math.min(Math.max(8, contextMenu.y), window.innerHeight - 100),
@@ -2376,39 +2377,13 @@ const ChatArea = ({
         </div>
       )}
 
-      {showGroupLeaveModal && (
-        <div className="fixed inset-0 bg-gray-100/50 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                <span className="text-blue-600 font-semibold text-lg">
-                  {currentChat?.name?.charAt(0) || "G"}
-                </span>
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900">
-                  {currentChat?.name || "Guruh"}
-                </h3>
-              </div>
-            </div>
-
-            <p className="text-gray-600 mb-6">Bu guruhdan chiqmoqchimisiz?</p>
-
-            <div className="flex space-x-3">
-              <button
-                className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
-                onClick={() => setShowGroupLeaveModal(false)}>
-                Bekor qilish
-              </button>
-              <button
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                onClick={handleGroupLeave}>
-                Chiqish
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <GroupLeaveModal
+        isOpen={showGroupLeaveModal}
+        onClose={() => setShowGroupLeaveModal(false)}
+        onConfirm={handleGroupLeave}
+        groupName={currentChat?.name || "Guruh"}
+        isCreator={groupStatus?.role === 'creator'}
+      />
 
       {/* Image Preview Modal */}
       {imagePreviewData && (

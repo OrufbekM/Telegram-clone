@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+﻿import React, { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
@@ -241,7 +241,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-background text-foreground p-0 overflow-hidden" showCloseButton={false}>
+      <DialogContent className="sm:max-w-md bg-background text-foreground p-0 overflow-hidden dark:bg-gray-900" showCloseButton={false}>
         <DialogHeader className="text-primary-foreground items-start p-6" >
           <DialogTitle className="text-xl text-black font-bold text-center dark:text-white">My Profil</DialogTitle>
           <div className="absolute top-4 right-4 profile-menu">
@@ -267,7 +267,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket
                 </button>
                 <button
                   onClick={() => handleMenuOptionClick('logout')}
-                  className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-accent"
+                  className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-destructive"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Chiqish
@@ -297,7 +297,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket
 
               <div className="flex items-center gap-1">
                 <span className={`w-2 h-2 rounded-full ${userStatuses[storedUser.id]?.isOnline ? 'bg-green-500' : 'bg-green-400'}`}></span>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-gray-600 dark:text-gray-300">
                   {userStatuses[storedUser.id]?.isOnline ? 'Online' : 
                    userStatuses[storedUser.id]?.lastSeen ? `Last seen ${formatLastSeen(userStatuses[storedUser.id].lastSeen)}` : 'Online'}
                 </p>
@@ -430,7 +430,20 @@ const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket
             
             <div className="flex space-x-3 mt-6">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setIsEditing(false)}>Bekor qilish</Button>
-              <Button type="submit" className="flex-1 dark:bg-blue-900 dark:text-white" disabled={loading}>{loading ? 'Saqlanmoqda...' : 'Saqlash'}</Button>
+              <Button 
+                type="submit" 
+                className="flex-1 dark:bg-blue-900 dark:text-white" 
+                disabled={loading || (
+                  form.username === profile.username &&
+                  form.firstName === profile.firstName &&
+                  form.lastName === profile.lastName &&
+                  form.bio === profile.bio &&
+                  form.phone === profile.phone &&
+                  !selectedFile
+                )}
+              >
+                {loading ? 'Saqlanmoqda...' : 'Saqlash'}
+              </Button>
             </div>
           </form>
         )}

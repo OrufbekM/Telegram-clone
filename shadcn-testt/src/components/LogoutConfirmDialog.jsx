@@ -4,7 +4,7 @@ import { Button } from './ui/button'
 const LogoutConfirmDialog = ({ open, onOpenChange, onConfirm, onCancel }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-background text-foreground dark:bg-stale-900 dark:text-white">
+      <DialogContent className="sm:max-w-md bg-background text-foreground dark:bg-gray-900 dark:text-white">
         <DialogHeader>
           <DialogTitle className="text-foreground dark:text-white">Chiqishni tasdiqlang</DialogTitle>
           <DialogDescription className="text-muted-foreground dark:text-gray-400">

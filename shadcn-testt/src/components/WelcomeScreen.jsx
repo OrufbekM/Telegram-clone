@@ -3,7 +3,7 @@ import { Button } from './ui/button'
 import { MessageCircle, Plus, Search } from 'lucide-react'
 const WelcomeScreen = ({ onCreateGroup, onSearchUsers }) => {
   return (
-    <div className="flex-1 flex items-center justify-center dark:bg-zinc-900">
+    <div className="flex-1 flex items-center justify-center dark:bg-gray-900">
       <div className="text-center display-flex ">
         <MessageCircle className="w-24 h-24 text-gray-300 mx-auto mb-6 dark:text-blue-900" />
         <div className='text-center'>

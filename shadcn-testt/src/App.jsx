@@ -1,10 +1,9 @@
-﻿import React, { useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import ChatApp from './components/ChatApp'
 import LoginScreen from './components/LoginScreen'
 import NotFound from './components/NotFound'
 import ToastContainer from './components/ToastContainer'
-import ConfirmDialog from './components/ConfirmDialog'
 import { useToast } from './hooks/use-toast'
 import { useConfirm } from './hooks/useConfirm'
 import { initAlertService } from './services/alertService'
@@ -43,17 +42,6 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
-      {}
-      <ConfirmDialog
-        open={confirmState.isOpen}
-        onOpenChange={closeConfirm}
-        title={confirmState.title}
-        message={confirmState.message}
-        confirmText={confirmState.confirmText}
-        cancelText={confirmState.cancelText}
-        variant={confirmState.variant}
-        onConfirm={handleConfirm}
-      />
     </div>
   )
 }

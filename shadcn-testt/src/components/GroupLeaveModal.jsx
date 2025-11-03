@@ -33,12 +33,12 @@ const GroupLeaveModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose} >
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
             {isCreator ? (
               <>
-                <Trash2 className="w-5 h-5 text-re  d-500" />
+                <Trash2 className="w-5 h-5 text-red-500" />
                 Guruhni o'chirish
               </>
             ) : (
@@ -48,7 +48,7 @@ const GroupLeaveModal = ({
               </>
             )}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-gray-700 dark:text-gray-300">
             {isCreator ? (
               `"${groupName}" guruhini o'chirishni xohlaysizmi?`
             ) : (
@@ -66,7 +66,7 @@ const GroupLeaveModal = ({
             />
             <label
               htmlFor="deleteForEveryone"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-900 dark:text-gray-100"
             >
               Barcha a'zolar uchun o'chirish
             </label>
@@ -74,13 +74,13 @@ const GroupLeaveModal = ({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} className={"dark:hover:bg-gray-900"}>
             Bekor qilish
           </Button>
           <Button 
             variant={isCreator && deleteForEveryone ? "destructive" : "default"}
             onClick={handleConfirm}
-            className={isCreator && !deleteForEveryone ? "bg-orange-500 hover:bg-orange-600" : ""}
+            className={isCreator && !deleteForEveryone ? "bg-gray-900 hover:bg-blue-700 dark:bg-blue-900 dark:hover:bg-blue-700 dark:text-white" : ""}
           >
             {isCreator ? (
               deleteForEveryone ? "Hammasi uchun o'chirish" : "Faqat men uchun chiqish"

@@ -149,19 +149,24 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-background text-foreground p-0 overflow-hidden" >
-        <DialogHeader className="text-primary-foreground items-start p-6">
-          <DialogTitle className="text-xl text-black font-bold text-center">User Info</DialogTitle>
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 text-foreground p-0 overflow-hidden border border-gray-200 dark:border-gray-700">
+        <DialogHeader className="bg-gray-50 dark:bg-gray-800 p-6">
+          <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white text-center">Foydalanuvchi ma'lumotlari</DialogTitle>
         </DialogHeader>
         
         <div className="p-6">
           <div className="flex flex-row items-center mb-6 gap-4">
-            <Avatar className="w-19 h-19 mb-4">
+            <Avatar className="w-20 h-20 border-4 border-gray-200 dark:border-gray-700">
               {userInfo.avatar && <AvatarImage src={toAbsoluteUrl(userInfo.avatar)} alt="avatar" />}
-              <AvatarFallback className="bg-primary text-primary-foreground text-2xl">{initial}</AvatarFallback>
+              <AvatarFallback className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-2xl">
+                {initial}
+              </AvatarFallback>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white dark:border-gray-900">
+                <div className={`w-full h-full rounded-full ${userInfo.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+              </div>
             </Avatar>
             <div>
-              <h2 className="text-xl font-semibold text-foreground">{userInfo.firstName} {userInfo.lastName}</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{userInfo.firstName} {userInfo.lastName}</h2>
               <div className="flex items-center mt-1">
                 <OnlineStatusIndicator 
                   isOnline={userInfo.isOnline} 
@@ -175,44 +180,61 @@ const UserInfoDialog = ({ open, onOpenChange, user }) => {
           </div>
           
           <div className="space-y-4">
-            <div className="flex items-center p-3 rounded-lg bg-muted/50">
-              <User className="h-5 w-5 text-muted-foreground mr-3" />
+            <div className="flex items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+              <User className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-3" />
               <div>
-                <p className="text-xs text-muted-foreground">Ism</p>
-                <p className="text-foreground">{userInfo.firstName || '-'} {userInfo.lastName || ''}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Ism</p>
+                <p className="text-gray-900 dark:text-white">{userInfo.firstName || '-'} {userInfo.lastName || ''}</p>
               </div>
             </div>
             
-            <div className="flex items-center p-3 rounded-lg bg-muted/50">
-              <AtSign className="h-5 w-5 text-muted-foreground mr-3" />
+            <div className="flex items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+              <AtSign className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-3" />
               <div>
-                <p className="text-xs text-muted-foreground">Username</p>
-                <p className="text-foreground">@{userInfo.username || '-'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Username</p>
+                <p className="text-gray-900 dark:text-white">@{userInfo.username || '-'}</p>
               </div>
             </div>
             
-            <div className="flex items-center p-3 rounded-lg bg-muted/50">
-              <Phone className="h-5 w-5 text-muted-foreground mr-3" />
+            <div className="flex items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+              <Phone className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-3" />
               <div>
-                <p className="text-xs text-muted-foreground">Telefon</p>
-                <p className="text-foreground">{userInfo.phone || "Ma'lumot yo'q"}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Telefon</p>
+                <p className="text-gray-900 dark:text-white">{userInfo.phone || "Ma'lumot yo'q"}</p>
               </div>
             </div>
             
-            <div className="flex items-center p-3 rounded-lg bg-muted/50">
-              <FileText className="h-5 w-5 text-muted-foreground mr-3 mt-0.5" />
-              <div>
-                <p className="text-xs text-muted-foreground">Bio</p>
-                <p className="text-foreground">{userInfo.bio || "Ma'lumot yo'q"}</p>
+            {userInfo.bio && (
+              <div className="flex items-start p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                <FileText className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-3 mt-1 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Bio</p>
+                  <p className="text-gray-900 dark:text-white whitespace-pre-line">{userInfo.bio}</p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           
-          <div className="flex space-x-3 mt-6">
-
-            <Button className="flex-1" onClick={handleSendMessage} disabled={isLoading}>
-              <MessageSquare className="h-4 w-4 mr-2" />
-              {isLoading ? 'Yuborilmoqda...' : 'Xabar yuborish'}
+          <div className="mt-6">
+            <Button 
+              onClick={handleSendMessage} 
+              className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Yuborilmoqda...
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Xabar yuborish
+                </span>
+              )}
             </Button>
           </div>
         </div>

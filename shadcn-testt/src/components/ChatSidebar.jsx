@@ -100,7 +100,7 @@ const ChatSidebar = ({
       // Update private chats
       setPrivateChats(prevChats => 
         prevChats.map(chat => {
-          if (chat.user.id === userId) {
+          if (chat?.user?.id === userId) {
             return {
               ...chat,
               user: {
@@ -1051,11 +1051,11 @@ const ChatSidebar = ({
   };
 
   return (
-    <div className="w-96 bg-sidebar border-r border-sidebar-border flex flex-col h-screen overflow-hidden text-sidebar-foreground">
+    <div className="w-96 bg-sidebar border-r border-sidebar-border flex flex-col h-screen overflow-hidden text-sidebar-foreground dark:bg-gray-900">
       <div className="p-4 pl-1 border-b border-sidebar-border" style={{paddingTop: "30px"}}>
         <div className="flex items-center justify-between mb-4">
           <div
-            className="cursor-pointer p-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            className="cursor-pointer p-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:hover:bg-gray-800"
             onClick={() => setIsProfileSheetOpen(true)}>
             <Menu className="w-6 h-6 text-sidebar-foreground" />
           </div>
@@ -1090,8 +1090,8 @@ const ChatSidebar = ({
           <button
             className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
               activeTab === "all"
-                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent"
-                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent dark:bg-gray-800"
+                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent dark:hover:bg-gray-800"
             }`}
             onClick={() => setActiveTab("all")}>
             <LayoutGrid className="w-4 h-4 inline mr-1" />
@@ -1100,8 +1100,8 @@ const ChatSidebar = ({
           <button
             className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
               activeTab === "users"
-                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent"
-                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent dark:bg-gray-800"
+                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent dark:hover:bg-gray-800"
             }`}
             onClick={() => setActiveTab("users")}>
             <User className="w-4 h-4 inline mr-1" />
@@ -1110,8 +1110,8 @@ const ChatSidebar = ({
           <button
             className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
               activeTab === "groups"
-                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent"
-                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent dark:bg-gray-800"
+                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent dark:hover:bg-gray-800"
             }`}
             onClick={() => setActiveTab("groups")}>
             <Users className="w-4 h-4 inline mr-1" />
@@ -1120,8 +1120,8 @@ const ChatSidebar = ({
           <button
             className={`flex items-center basis-1/2 sm:basis-1/4 px-2 py-2 text-sm font-medium text-center ${
               activeTab === "channels"
-                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent"
-                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                ? "text-sidebar-primary border-b-2 border-sidebar-primary bg-sidebar-accent dark:bg-gray-800"
+                : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent dark:hover:bg-gray-800"
             }`}
             onClick={() => setActiveTab("channels")}>
             <Megaphone className="w-4 h-4 inline mr-1" />

@@ -41,13 +41,6 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
       setShowImageUpload(false);
     }
   }, [isOpen, editMode]);
-  const resetImageUpload = () => {
-    console.log('рџ† Emergency reset of image upload');
-    setShowImageUpload(false);
-    setTimeout(() => {
-      setShowImageUpload(true);
-    }, 100);
-  };
   const [uploadedAvatar, setUploadedAvatar] = useState(null);
   const handleUpdateGroupInfo = async () => {
     const token = storage.getPersistent("chatToken");
@@ -79,45 +72,13 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
       });
     }
   };
-  const handleImageUploadComplete = async (imageData) => {
-    try {
-      const token = storage.getPersistent("chatToken");
-      console.log('рџ–јпёЏ Image upload completed:', imageData);
-      const avatarPath = imageData.url.replace('http://localhost:3000', '');
-      console.log('рџ“Ѓ Avatar path:', avatarPath);
-      const response = await updateGroupInfo(token, groupId, { avatar: avatarPath });
-      console.log('вњ… Server response:', response);
-      setGroupDetails(prev => ({
-        ...prev,
-        avatar: avatarPath
-      }));
-      window.dispatchEvent(new CustomEvent('group-info-updated', {
-        detail: {
-          groupId: groupId,
-          avatar: avatarPath,
-          updatedBy: 'avatar-change'
-        }
-      }));
-      setUploadedAvatar(null);
-      toast({
-        title: "Muvaffaqiyat!",
-        description: "Guruh rasmi yangilandi",
-        variant: "default",
-      });
-    } catch (error) {
-      console.error('вќЊ Error updating group avatar:', error);
-      toast({
-        title: "Xatolik!",
-        description: error.message || "Guruh rasmini yangilashda xatolik",
-        variant: "destructive",
-      });
-    }
-  };
+
+
   const handlePromoteToAdmin = async (userId) => {
     const token = storage.getPersistent("chatToken");
     try {
       await promoteToAdmin(token, groupId, userId);
-      setMembers(prev => prev.map(member => 
+      setMembers(prev => prev.map(member =>
         member.id === userId ? { ...member, role: 'admin' } : member
       ));
       toast({
@@ -137,7 +98,7 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
     const token = storage.getPersistent("chatToken");
     try {
       await demoteFromAdmin(token, groupId, userId);
-      setMembers(prev => prev.map(member => 
+      setMembers(prev => prev.map(member =>
         member.id === userId ? { ...member, role: 'member' } : member
       ));
       toast({
@@ -164,7 +125,7 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
     setLoading(true);
     const token = storage.getPersistent("chatToken");
     try {
-      console.log('рџ”Ќ Fetching group status for groupId:', groupId);
+      console.log(' Fetching group status for groupId:', groupId);
       const statusData = await checkGroupStatus(token, groupId);
       console.log('рџ“‹ Status data received:', statusData);
       if (statusData.group) {
@@ -174,7 +135,7 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
         setOnlineCount(initialOnlineCount);
         try {
           window.dispatchEvent(new CustomEvent('group-online-count-updated', { detail: { groupId, onlineCount: initialOnlineCount } }));
-        } catch {}
+        } catch { }
         console.log('вњ… Group details set:', statusData.group);
         console.log('рџЋ­ User role:', statusData.role);
         console.log('рџ‘Ґ Initial online count:', initialOnlineCount);
@@ -197,7 +158,7 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
             setOnlineCount(serverOnlineCount);
             try {
               window.dispatchEvent(new CustomEvent('group-online-count-updated', { detail: { groupId, onlineCount: serverOnlineCount } }));
-            } catch {}
+            } catch { }
             console.log('вњ… Members set successfully:', membersData.members.length, 'members');
             console.log('рџ‘Ґ Server online count:', serverOnlineCount);
           } else {
@@ -236,8 +197,8 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
     const handleMemberPromoted = (event) => {
       const data = event.detail;
       if (data.data.groupId == groupId) {
-        setMembers(prev => prev.map(member => 
-          member.id === data.data.userId 
+        setMembers(prev => prev.map(member =>
+          member.id === data.data.userId
             ? { ...member, role: data.data.newRole }
             : member
         ));
@@ -246,8 +207,8 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
     const handleMemberDemoted = (event) => {
       const data = event.detail;
       if (data.data.groupId == groupId) {
-        setMembers(prev => prev.map(member => 
-          member.id === data.data.userId 
+        setMembers(prev => prev.map(member =>
+          member.id === data.data.userId
             ? { ...member, role: data.data.newRole }
             : member
         ));
@@ -275,18 +236,18 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
     const handleUserStatusUpdate = (event) => {
       const data = event.detail;
       if (data.data.userId) {
-        setMembers(prev => prev.map(member => 
-          member.id === data.data.userId 
+        setMembers(prev => prev.map(member =>
+          member.id === data.data.userId
             ? {
-                ...member,
-                isOnline: data.data.isOnline,
-                lastSeen: data.data.lastSeen
-              }
+              ...member,
+              isOnline: data.data.isOnline,
+              lastSeen: data.data.lastSeen
+            }
             : member
         ));
         setOnlineCount(prev => {
-          const updatedMembers = members.map(member => 
-            member.id === data.data.userId 
+          const updatedMembers = members.map(member =>
+            member.id === data.data.userId
               ? { ...member, isOnline: data.data.isOnline }
               : member
           );
@@ -377,309 +338,176 @@ const GroupInfoDialog = ({ groupId, onClose, isOpen }) => {
   }
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-900">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold flex items-center justify-between">
+          <DialogTitle className="text-xl font-bold flex items-center justify-between text-gray-900 dark:text-white">
             <div className="flex items-center space-x-3">
               <span>Guruh ma'lumotlari</span>
               {canManageMembers && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => setEditMode(!editMode)}
+                  className="hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  {editMode ? "Bekor qilish" : "Tahrirlash"}
+                  {editMode ? 'Bekor qilish' : 'Tahrirlash'}
                 </Button>
               )}
             </div>
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          {}
-          <div className="space-y-3">
-            {editMode ? (
-              <>
-                {}
-                <div className="text-center">
-                  <div className="relative inline-block">
-                    <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2 overflow-hidden">
-                      {uploadedAvatar || groupDetails?.avatar ? (
-                        <img
-                          src={
-                            uploadedAvatar || toAbsoluteUrl(groupDetails.avatar)
-                          }
-                          alt="Guruh rasmi"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.style.display = "none";
-                            e.target.nextSibling.style.display = "flex";
-                          }}
-                        />
-                      ) : null}
-                      <Users
-                        className="w-10 h-10 text-green-600"
-                        style={{
-                          display:
-                            uploadedAvatar || groupDetails?.avatar
-                              ? "none"
-                              : "block",
-                        }}
-                      />
-                    </div>
+
+        <div className="space-y-6 p-4">
+          {/* Group Info Section */}
+          <div className="flex items-start space-x-4">
+            <div className="relative group">
+              <img
+                src={groupDetails.avatar ? toAbsoluteUrl(groupDetails.avatar) : '/default-group.png'}
+                alt={groupDetails.name}
+                className="w-24 h-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => editMode && setShowImageUpload(true)}
+              />
+              {editMode && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-white text-sm">O'zgartirish</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1">
+              {editMode ? (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="groupName" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Guruh nomi
+                    </Label>
+                    <Input
+                      id="groupName"
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      className="mt-1 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="groupDescription" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Tavsif (ixtiyoriy)
+                    </Label>
+                    <Input
+                      id="groupDescription"
+                      value={editedDescription}
+                      onChange={(e) => setEditedDescription(e.target.value)}
+                      className="mt-1 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="flex space-x-2">
                     <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        console.log('рџ“· Image upload button clicked');
-                        if (showImageUpload) {
-                          resetImageUpload();
-                        } else {
-                          setShowImageUpload(true);
-                        }
-                      }}
-                      onDoubleClick={() => {
-                        console.log('рџ“· Double-click: Emergency reset');
-                        resetImageUpload();
-                      }}
-                      className="text-xs"
-                      title="Click to open, double-click to reset if stuck"
+                      onClick={handleUpdateGroupInfo}
+                      disabled={!editedName.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white"
                     >
-                      {showImageUpload ? 'Reset' : 'Rasm tanlash'}
+                      Saqlash
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditMode(false)}
+                      className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      Bekor qilish
                     </Button>
                   </div>
                 </div>
-                <div onWheel={(e)=> e.stopPropagation()}>
-                  <Label htmlFor="groupName">Guruh nomi</Label>
-                  <Input
-                    id="groupName"
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    placeholder="Guruh nomi"
-                  />
-                </div>
-                <div onWheel={(e)=> e.stopPropagation()}>
-                  <Label htmlFor="groupDescription">Ta'rif</Label>
-                  <Input
-                    id="groupDescription"
-                    value={editedDescription}
-                    onChange={(e) => setEditedDescription(e.target.value)}
-                    placeholder="Guruh ta'rifi"
-                  />
-                </div>
-                <Button onClick={handleUpdateGroupInfo} className="w-full">
-                  Saqlash
-                </Button>
-              </>
-            ) : (
-              <>
-                {}
-                <div className="text-center mb-4">
-                  <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2 overflow-hidden">
-                    {uploadedAvatar || groupDetails?.avatar ? (
-                      <img
-                        src={
-                          uploadedAvatar || toAbsoluteUrl(groupDetails.avatar)
-                        }
-                        alt="Guruh rasmi"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                          e.target.nextSibling.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <Users
-                      className="w-10 h-10 text-green-600"
-                      style={{
-                        display:
-                          uploadedAvatar || groupDetails?.avatar
-                            ? "none"
-                            : "block",
-                      }}
-                    />
+              ) : (
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {groupDetails.name}
+                  </h2>
+                  {groupDetails.description && (
+                    <p className="text-gray-600 dark:text-gray-300">
+                      {groupDetails.description}
+                    </p>
+                  )}
+                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                    <Users className="w-4 h-4 mr-1" />
+                    <span>{groupDetails.memberCount || members.length} a'zo • {onlineCount} onlayn</span>
                   </div>
                 </div>
-                <h2 className="text-2xl font-bold">{groupDetails?.name}</h2>
-                <p className="text-gray-600">
-                  {groupDetails?.description || "Ta'rif yo'q"}
-                </p>
-              </>
-            )}
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Jami a'zolar:</span>
-                <span className="ml-2">{groupDetails?.memberCount || 0}</span>
-              </div>
-              <div>
-                <span className="font-medium">Onlayn:</span>
-                <span className="ml-2 text-green-600">{onlineCount}</span>
-              </div>
-              <div>
-                <span className="font-medium">Yaratilgan:</span>
-                <span className="ml-2">
-                  {groupDetails?.createdAt
-                    ? new Date(groupDetails.createdAt).toLocaleDateString(
-                        "uz-UZ",
-                        {
-                          year: "numeric",
-                          month: "numeric",
-                          day: "numeric",
-                        }
-                      )
-                    : "Ma'lumot yo'q"}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium">Yaratuvchi:</span>
-                <span className="ml-2">{groupDetails?.creator?.username}</span>
-              </div>
+              )}
             </div>
           </div>
-          <Separator />
-          <div>
-            <h3 className="font-semibold mb-3 flex items-center justify-between">
-              <span>A'zolar ({members.length})</span>
-              <span className="text-sm text-gray-500">
-                Onlayn: {onlineCount}
-              </span>
-            </h3>
-            <ScrollArea className="h-48 w-full border rounded-md p-4">
-              <div className="space-y-3">
-                {members
-                  .sort((a, b) => {
-                    const roleOrder = { creator: 0, admin: 1, member: 2 };
-                    return roleOrder[a.role] - roleOrder[b.role];
-                  })
-                  .map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between p-2 hover:bg-gray-50 rounded"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
-                          <img
-                            src={
-                              toAbsoluteUrl(member.avatar) ||
-                              "/api/placeholder/32/32"
-                            }
-                            alt=""
-                            className="w-8 h-8 rounded-full"
-                            onError={(e) => {
-                              e.target.src = "/api/placeholder/32/32";
-                            }}
-                          />
-                          {member.isOnline && (
-                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium">
-                            {member.firstName} {member.lastName}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            @{member.username}
-                          </div>
-                        </div>
-                        <div className="ml-2">
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${
-                              member.role === "creator"
-                                ? "bg-purple-100 text-purple-800"
-                                : member.role === "admin"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {member.role === "creator"
-                              ? "Yaratuvchi"
-                              : member.role === "admin"
-                              ? "Admin"
-                              : "A'zo"}
-                          </span>
-                        </div>
-                      </div>
-                      {canManageMembers &&
-                        member.id !== currentUser?.id &&
-                        member.role !== "creator" && (
-                          <div className="flex space-x-1">
-                            {member.role === "member" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handlePromoteToAdmin(member.id)}
-                                className="text-xs"
-                              >
-                                Admin qilish
-                              </Button>
-                            )}
-                            {member.role === "admin" && isCreator && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDemoteFromAdmin(member.id)}
-                                className="text-xs"
-                              >
-                                Admin emas
-                              </Button>
-                            )}
-                            {(member.role === "member" ||
-                              (member.role === "admin" && isCreator)) && (
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleRemoveMember(member.id)}
-                                className="text-xs"
-                              >
-                                Chiqarish
-                              </Button>
-                            )}
-                          </div>
-                        )}
+
+          {/* Members List */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <h3 className="font-medium text-gray-900 dark:text-white mb-3">A'zolar</h3>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {members.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <img
+                        src={member.avatar ? toAbsoluteUrl(member.avatar) : '/default-avatar.png'}
+                        alt={member.username}
+                        className="w-10 h-10 rounded-full"
+                      />
+                      {member.isOnline && (
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
+                      )}
                     </div>
-                  ))}
-              </div>
-            </ScrollArea>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        {member.firstName} {member.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        @{member.username}
+                        {member.role === 'creator' && ' • Asoschi'}
+                        {member.role === 'admin' && ' • Admin'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {canManageMembers && member.role !== 'creator' && (
+                    <div className="flex space-x-2">
+                      {member.role === 'admin' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDemoteFromAdmin(member.id)}
+                          className="text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          Adminlikdan olib tashlash
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePromoteToAdmin(member.id)}
+                          className="text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          Admin qilish
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemoveMember(member.id)}
+                        className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-800"
+                      >
+                        Chiqarib yuborish
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </DialogContent>
-      {showImageUpload && (
-        <ImageUpload
-          autoOpen={true}
-          onComplete={handleImageUploadComplete}
-          onCancel={() => {
-            console.log('рџ”ґ ImageUpload cancelled');
-            setShowImageUpload(false);
-          }}
-        />
-      )}
-      {memberToRemove && (
-        <Dialog open={true} onOpenChange={() => setMemberToRemove(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>A'zoni guruhdan chiqarish</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p>
-                <span className="font-medium">{memberToRemove.username}</span>{" "}
-                foydalanuvchisini guruhdan chiqarishni xohlaysizmi?
-              </p>
-              <div className="flex justify-end space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setMemberToRemove(null)}
-                >
-                  Bekor qilish
-                </Button>
-                <Button variant="destructive" onClick={confirmRemoveMember}>
-                  Ha, chiqarish
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </Dialog>
   );
 };
-export default GroupInfoDialog;
 
+export default GroupInfoDialog;

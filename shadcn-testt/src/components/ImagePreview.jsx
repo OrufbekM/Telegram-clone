@@ -53,7 +53,7 @@ export function ImagePreview({
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 border-0 bg-transparent shadow-none">
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 border-0 bg-transparent dark:bg-gray-900 shadow-none">
         <Carousel className="w-full max-w-4xl" setApi={setApi}>
           <CarouselContent>
             {carouselImages.map((image, index) => (
@@ -62,7 +62,7 @@ export function ImagePreview({
                   <img
                     src={toAbsoluteUrl(image)}
                     alt={`Preview ${index + 1}`}
-                    className="max-w-full max-h-full object-contain rounded-lg"
+                    className="max-w-full max-h-full object-contain rounded-lg dark:bg-gray-800"
                   />
                 </div>
               </CarouselItem>
@@ -70,8 +70,8 @@ export function ImagePreview({
           </CarouselContent>
           {carouselImages.length > 1 && (
             <>
-              <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white border-0" />
-              <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white border-0" />
+              <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 dark:bg-gray-800/80 dark:hover:bg-gray-700/90 text-white border-0" />
+              <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 dark:bg-gray-800/80 dark:hover:bg-gray-700/90 text-white border-0" />
             </>
           )}
         </Carousel>
