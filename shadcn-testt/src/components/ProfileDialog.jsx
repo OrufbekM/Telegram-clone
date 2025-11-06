@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
@@ -242,8 +242,8 @@ const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-background text-foreground p-0 overflow-hidden dark:bg-gray-900" showCloseButton={false}>
-        <DialogHeader className="text-primary-foreground items-start p-6" >
-          <DialogTitle className="text-xl text-black font-bold text-center dark:text-white">My Profil</DialogTitle>
+        <DialogHeader className="text-primary-foreground items-start p-6 bg-gray-50 dark:bg-gray-800" >
+          <DialogTitle className="text-xl text-black font-bold text-center dark:text-white">Mening Profilim</DialogTitle>
           <div className="absolute top-4 right-4 profile-menu">
             <Button
               variant="ghost"
@@ -308,7 +308,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket
             </div>
             
             <div className="space-y-4">
-              <div className="flex items-center p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center p-3 rounded-lg bg-muted/50 dark:bg-gray-800/50">
                 <User className="h-5 w-5 text-muted-foreground mr-3" />
                 <div>
                   <p className="text-xs text-muted-foreground">Ism</p>
@@ -316,7 +316,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket
                 </div>
               </div>
               
-              <div className="flex items-center p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center p-3 rounded-lg bg-muted/50 dark:bg-gray-800/50">
                 <AtSign className="h-5 w-5 text-muted-foreground mr-3" />
                 <div>
                   <p className="text-xs text-muted-foreground">Username</p>
@@ -325,7 +325,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket
               </div>
               
               {/* Phone number without exclamation mark */}
-                <div className="flex items-center p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center p-3 rounded-lg bg-muted/50 dark:bg-gray-800/50">
                   <Phone className="h-5 w-5 text-muted-foreground mr-3" />
                   <div>
                     <p className="text-xs text-muted-foreground">Telefon</p>
@@ -336,7 +336,7 @@ const ProfileDialog = ({ open, onOpenChange, onLogout, userStatuses = {}, socket
               
               
 
-                <div className="flex items-center p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center p-3 rounded-lg bg-muted/50 dark:bg-gray-800/50  ">
                   <FileText className="h-5 w-5 text-muted-foreground mr-3 mt-0.5" />
                   <div>
                     <p className="text-xs text-muted-foreground">Bio</p>

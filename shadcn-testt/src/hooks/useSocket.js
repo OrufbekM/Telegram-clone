@@ -112,7 +112,15 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
                 updates: data.data.updates
               });
             }
+            // Hyphenated event name (used by several components)
             window.dispatchEvent(new CustomEvent('user-profile-updated', { 
+              detail: { 
+                userId: data.data.userId, 
+                updates: data.data.updates 
+              } 
+            }));
+            // CamelCase event name (backward compatibility for ChatApp listener)
+            window.dispatchEvent(new CustomEvent('userProfileUpdated', { 
               detail: { 
                 userId: data.data.userId, 
                 updates: data.data.updates 
@@ -311,10 +319,7 @@ export const useSocket = (userId, onMessage, onStatusUpdate) => {
             window.dispatchEvent(new CustomEvent('channelAdminRevoked', { detail: data.data }));
             break;
 
-          case "userProfileUpdated":
-            console.log('👤 User profile updated:', data.data);
-            window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: data.data }));
-            break;
+          
 
           default:
             // Handle any other message types

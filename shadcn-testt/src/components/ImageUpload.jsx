@@ -433,7 +433,7 @@ const handleEmojiSelect = (emoji) => {
   // Multi-image modal for messages
   if (selectedImages.length > 1 && previewUrls.length > 1) {
     return (
-      <div className="fixed inset-0 bg-gray-400/40 bg-opacity-60 flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 bg-gray-400 bg-opacity-60 flex items-center justify-center z-[9999] p-4">
         <div className="bg-white border border-[10px] border-white rounded-xl max-w-2xl w-full shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">Send images</h3>

@@ -96,56 +96,75 @@ const ChatSidebar = ({
   useEffect(() => {
     const handleProfileUpdate = (event) => {
       const { userId, updates } = event.detail;
-      
-      // Update private chats
-      setPrivateChats(prevChats => 
-        prevChats.map(chat => {
+
+      // Update private chats (use otherUser which is used in sidebar)
+      setPrivateChats((prevChats) => {
+        const updatedChats = prevChats.map((chat) => {
+          if (chat?.otherUser?.id === userId) {
+            return {
+              ...chat,
+              otherUser: {
+                ...chat.otherUser,
+                ...updates,
+              },
+            };
+          }
+          // Backward compatibility if some entries keep 'user'
           if (chat?.user?.id === userId) {
             return {
               ...chat,
               user: {
                 ...chat.user,
-                ...updates
-              }
+                ...updates,
+              },
             };
           }
           return chat;
-        })
-      );
+        });
+        const cacheKey = `sidebar_private_chats_${user?.id}`;
+        storage.setSession(cacheKey, JSON.stringify(updatedChats));
+        return updatedChats;
+      });
 
       // Update group members
-      setGroups(prevGroups => 
-        prevGroups.map(group => {
-          const updatedMembers = group.members?.map(member => 
+      setGroups((prevGroups) => {
+        const updatedGroups = prevGroups.map((group) => {
+          const updatedMembers = group.members?.map((member) =>
             member.id === userId ? { ...member, ...updates } : member
           );
           return {
             ...group,
-            members: updatedMembers || group.members
+            members: updatedMembers || group.members,
           };
-        })
-      );
+        });
+        const groupsCacheKey = `sidebar_groups_${user?.id}`;
+        storage.setSession(groupsCacheKey, JSON.stringify(updatedGroups));
+        return updatedGroups;
+      });
 
       // Update channel members
-      setChannels(prevChannels => 
-        prevChannels.map(channel => {
-          const updatedMembers = channel.members?.map(member => 
+      setChannels((prevChannels) => {
+        const updatedChannels = prevChannels.map((channel) => {
+          const updatedMembers = channel.members?.map((member) =>
             member.id === userId ? { ...member, ...updates } : member
           );
           return {
             ...channel,
-            members: updatedMembers || channel.members
+            members: updatedMembers || channel.members,
           };
-        })
-      );
+        });
+        const channelsCacheKey = `sidebar_channels_${user?.id}`;
+        storage.setSession(channelsCacheKey, JSON.stringify(updatedChannels));
+        return updatedChannels;
+      });
     };
 
-    window.addEventListener('user-profile-updated', handleProfileUpdate);
-    
+    window.addEventListener("user-profile-updated", handleProfileUpdate);
+
     return () => {
-      window.removeEventListener('user-profile-updated', handleProfileUpdate);
+      window.removeEventListener("user-profile-updated", handleProfileUpdate);
     };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (user) {
@@ -631,24 +650,42 @@ const ChatSidebar = ({
       }
     };
 
-    // Add listener for user profile updates
+    // Add listener for user profile updates (camelCase variant). Normalize payload.
     const handleUserProfileUpdate = (e) => {
-      const updatedUser = e.detail;
+      let userId;
+      let updates;
+      const detail = e.detail;
+      if (detail && typeof detail === 'object' && 'userId' in detail && 'updates' in detail) {
+        userId = detail.userId;
+        updates = detail.updates;
+      } else if (detail && typeof detail === 'object' && 'id' in detail) {
+        userId = detail.id;
+        updates = detail; // full user object
+      } else {
+        return;
+      }
+
       // Update private chats with updated user info
-      setPrivateChats(prev => 
-        prev.map(chat => {
-          if (chat.otherUser?.id === updatedUser.id) {
+      setPrivateChats((prev) => {
+        const updated = prev.map((chat) => {
+          if (chat.otherUser?.id === userId) {
             return {
               ...chat,
-              otherUser: {
-                ...chat.otherUser,
-                ...updatedUser
-              }
+              otherUser: { ...chat.otherUser, ...updates },
+            };
+          }
+          if (chat.user?.id === userId) {
+            return {
+              ...chat,
+              user: { ...chat.user, ...updates },
             };
           }
           return chat;
-        })
-      );
+        });
+        const cacheKey = `sidebar_private_chats_${user?.id}`;
+        storage.setSession(cacheKey, JSON.stringify(updated));
+        return updated;
+      });
     };
 
     window.addEventListener("group-created", handleGroupCreated);
@@ -659,6 +696,7 @@ const ChatSidebar = ({
     window.addEventListener("private-chat-created", handlePrivateChatCreated);
     window.addEventListener("new-message", handleNewMessage);
     window.addEventListener("message", handleRealTimeMessage);
+    window.addEventListener("real-time-message", handleRealTimeMessage);
     window.addEventListener("user-status-update-global", handleGlobalUserStatusUpdate);
     window.addEventListener("group-online-count-updated", handleGroupOnlineCountUpdate);
     window.addEventListener("group-info-updated", handleGroupInfoUpdate);
@@ -688,6 +726,7 @@ const ChatSidebar = ({
       window.removeEventListener("private-chat-created", handlePrivateChatCreated);
       window.removeEventListener("new-message", handleNewMessage);
       window.removeEventListener("message", handleRealTimeMessage);
+      window.removeEventListener("real-time-message", handleRealTimeMessage);
       window.removeEventListener("user-status-update-global", handleGlobalUserStatusUpdate);
       window.removeEventListener("group-online-count-updated", handleGroupOnlineCountUpdate);
       window.removeEventListener("group-info-updated", handleGroupInfoUpdate);

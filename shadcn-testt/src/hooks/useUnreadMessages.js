@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 const API_URL = 'http://localhost:3000';
 export const useUnreadMessages = (user, currentChat, currentChatType) => {
@@ -89,13 +89,28 @@ export const useUnreadMessages = (user, currentChat, currentChatType) => {
     }
   }, [user]);
   useEffect(() => {
+    const processedIdsRef = new Map();
+
+    const maybeIncrement = (message) => {
+      if (!message || !message.id || !message.user || !message.chatType || !message.chatId) return;
+      if (user && message.user.id === user.id) return;
+      // Deduplicate by message.id per chat key
+      const key = `${message.chatType}_${message.chatId}`;
+      const set = processedIdsRef.get(key) || new Set();
+      if (set.has(message.id)) return;
+      set.add(message.id);
+      processedIdsRef.set(key, set);
+      incrementUnreadCount(message.chatType, message.chatId, message.user.id);
+    };
+
     const handleNewMessage = (event) => {
-      const message = event.detail;
-      if (message && message.user && message.chatType && message.chatId) {
-        if (user && message.user.id !== user.id) {
-          incrementUnreadCount(message.chatType, message.chatId, message.user.id);
-        }
-      }
+      maybeIncrement(event.detail);
+    };
+    const handleMessage = (event) => {
+      maybeIncrement(event.detail);
+    };
+    const handleRealTimeMessage = (event) => {
+      maybeIncrement(event.detail);
     };
     const handleMessageRead = (event) => {
       const data = event.detail;
@@ -110,10 +125,14 @@ export const useUnreadMessages = (user, currentChat, currentChatType) => {
       }
     };
     window.addEventListener('new-message', handleNewMessage);
+    window.addEventListener('message', handleMessage);
+    window.addEventListener('real-time-message', handleRealTimeMessage);
     window.addEventListener('message-read', handleMessageRead);
     window.addEventListener('chat-read', handleChatRead);
     return () => {
       window.removeEventListener('new-message', handleNewMessage);
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('real-time-message', handleRealTimeMessage);
       window.removeEventListener('message-read', handleMessageRead);
       window.removeEventListener('chat-read', handleChatRead);
     };

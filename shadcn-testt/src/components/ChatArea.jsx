@@ -37,6 +37,7 @@ import GroupInfoDialog from "./GroupInfoDialog";
 import ChannelInfoDialog from "./ChannelInfoDialog";
 import OnlineStatusIndicator from "./OnlineStatusIndicator";
 import VoiceMessagePlayer from "./VoiceMessagePlayer";
+import sendSound from "../assets/sounds/sound.mp3";
 import { useTyping } from "../hooks/useTyping";
 import { storage } from "../utils/storageUtils";
 import { ImagePreview } from "./ImagePreview";
@@ -56,6 +57,9 @@ const ChatArea = ({
 }) => {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const [soundEnabled, setSoundEnabled] = useState(
+    (typeof window !== 'undefined' && localStorage.getItem('soundEnabled')) === 'true'
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [groupStatus, setGroupStatus] = useState(null);
   const [channelStatus, setChannelStatus] = useState(null);
@@ -98,6 +102,7 @@ const ChatArea = ({
   const wsRef = useRef(null);
   const inputRef = useRef(null);
   const scrollAreaRef = useRef(null);
+  const sendAudioRef = useRef(null);
   const audioChunksRef = useRef([]);
 
   const API_URL = "http://localhost:3000";
@@ -108,6 +113,27 @@ const ChatArea = ({
 
   const { typingUsers, hasTypingUsers, typingText, startTyping, stopTyping } =
     useTyping(socket, chatType, currentChat?.id, user?.id);
+
+  // Play send sound (guarded by user setting). Create a fresh Audio for reliable playback.
+  const playSendSound = () => {
+    try {
+      const enabled = soundEnabled || (localStorage.getItem('soundEnabled') === 'true');
+      if (!enabled) return;
+      const audio = new Audio(sendSound);
+      audio.volume = 1.0;
+      audio.play().catch(() => {});
+    } catch (_) {}
+  };
+
+  // Sync sound setting from Settings modal
+  useEffect(() => {
+    const onSoundChanged = (e) => {
+      const { enabled } = e.detail || {};
+      if (typeof enabled === 'boolean') setSoundEnabled(enabled);
+    };
+    window.addEventListener('settings-sound-changed', onSoundChanged);
+    return () => window.removeEventListener('settings-sound-changed', onSoundChanged);
+  }, []);
 
   const [contextMenu, setContextMenu] = useState({
     visible: false,
@@ -258,23 +284,21 @@ const ChatArea = ({
     };
   }, []);
 
-  // Add effect  // Handle profile updates via WebSocket
+  // Handle profile updates via WebSocket (attach regardless of socket availability)
   useEffect(() => {
-    if (!socket) return;
-
     const handleProfileUpdate = (event) => {
       const { userId, updates } = event.detail;
-      
+
       // Update messages if the sender's profile was updated
-      setMessages(prevMessages => 
-        prevMessages.map(msg => {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) => {
           if (msg.senderId === userId) {
             return {
               ...msg,
               sender: {
                 ...msg.sender,
-                ...updates
-              }
+                ...updates,
+              },
             };
           }
           return msg;
@@ -282,12 +306,12 @@ const ChatArea = ({
       );
     };
 
-    window.addEventListener('user-profile-updated', handleProfileUpdate);
-    
+    window.addEventListener("user-profile-updated", handleProfileUpdate);
+
     return () => {
-      window.removeEventListener('user-profile-updated', handleProfileUpdate);
+      window.removeEventListener("user-profile-updated", handleProfileUpdate);
     };
-  }, [socket]);
+  }, []);
 
   // Handle WebSocket connection
   useEffect(() => {
@@ -501,6 +525,8 @@ const ChatArea = ({
           return updatedMessages;
         });
 
+        // sound already played prior to API call
+
         // Auto-scroll to bottom
         setTimeout(() => {
           const scrollArea = scrollAreaRef.current?.querySelector(
@@ -624,277 +650,270 @@ const ChatArea = ({
 
   // Real-time WebSocket connection and event listeners
   useEffect(() => {
-    if (socket && currentChat) {
-      // Join chat room for real-time updates
-      if (socket.send && socket.readyState === WebSocket.OPEN) {
+    if (!currentChat) return;
+
+  
+
+  // Join chat room for real-time updates (only if socket is ready)
+    if (socket && socket.send && socket.readyState === WebSocket.OPEN) {
+      socket.send(
+        JSON.stringify({
+          type: "join-chat",
+          chatId: currentChat.id,
+          chatType: chatType,
+          userId: user?.id,
+        })
+      );
+    }
+
+    // Listen for new messages
+    const handleNewMessage = (event) => {
+      const messageData = event.detail;
+      console.log("New message received:", messageData);
+
+      // Only add if message belongs to current chat
+      if (
+        messageData.chatId === currentChat.id &&
+        messageData.chatType === chatType
+      ) {
+        setMessages((prev) => {
+          // Check if message already exists to avoid duplicates
+          const exists = prev.some((msg) => msg.id === messageData.id);
+          if (exists) return prev;
+
+          const updatedMessages = [...prev, messageData];
+
+          // Update cache
+          const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
+          storage.setSession(cacheKey, JSON.stringify(updatedMessages));
+
+          return updatedMessages;
+        });
+
+        // Auto-scroll to bottom for new messages if user is at bottom
+        setTimeout(() => {
+          const scrollArea = scrollAreaRef.current?.querySelector(
+            "[data-radix-scroll-area-viewport]"
+          );
+          if (scrollArea) {
+            const { scrollTop, scrollHeight, clientHeight } = scrollArea;
+            const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+            if (isNearBottom || messageData.user.id === user?.id) {
+              scrollArea.scrollTo({
+                top: scrollArea.scrollHeight,
+                behavior: "smooth",
+              });
+            } else {
+              // Show jump button and increment new messages count
+              setShowJumpButton(true);
+              setNewMessagesCount((prev) => prev + 1);
+            }
+          }
+        }, 50);
+
+        // Mark as read if user is active and message is not from self
+        if (messageData.user.id !== user?.id && document.hasFocus()) {
+          markMessageAsRead(messageData.id);
+        } else if (messageData.user.id !== user?.id) {
+          // Even if not in focus, we should still track that the message exists
+          // This will be marked as read when the user scrolls to it or focuses the window
+          console.log(
+            "New message received but not in focus, will mark as read when focused"
+          );
+        }
+      }
+    };
+
+    // Listen for message read status updates
+    const handleMessageRead = (event) => {
+      const data = event.detail;
+      console.log("Message read status update:", data);
+
+      // Handle single message read update
+      if (data.messageId) {
+        setMessageReadStatus((prev) => ({
+          ...prev,
+          [data.messageId]: data.readers || [],
+        }));
+      }
+
+      // Handle multiple messages read update (bulk read)
+      if (data.messageIds && Array.isArray(data.messageIds)) {
+        const reader = data.reader;
+        const readAt = data.timestamp;
+
+        setMessageReadStatus((prev) => {
+          const updated = { ...prev };
+          data.messageIds.forEach((msgId) => {
+            const currentReaders = updated[msgId] || [];
+            const alreadyRead = currentReaders.some((r) => r.id === reader.id);
+
+            if (!alreadyRead) {
+              updated[msgId] = [
+                ...currentReaders,
+                {
+                  id: reader.id,
+                  username: reader.username,
+                  readAt: readAt,
+                },
+              ];
+            }
+          });
+          return updated;
+        });
+      }
+
+      // Handle messageReadReceipt events (from server)
+      if (data.type === "messageReadReceipt" && data.messageIds) {
+        const reader = data.reader;
+        const readAt = data.timestamp;
+
+        setMessageReadStatus((prev) => {
+          const updated = { ...prev };
+          data.messageIds.forEach((msgId) => {
+            const currentReaders = updated[msgId] || [];
+            const alreadyRead = currentReaders.some((r) => r.id === reader.id);
+
+            if (!alreadyRead) {
+              updated[msgId] = [
+                ...currentReaders,
+                {
+                  id: reader.id,
+                  username: reader.username,
+                  readAt: readAt,
+                },
+              ];
+            }
+          });
+          return updated;
+        });
+      }
+    };
+
+    // Listen for message edit updates
+    const handleMessageEdit = (event) => {
+      const data = event.detail;
+      console.log("Message edited:", data);
+      if (data.chatId === currentChat.id) {
+        setMessages((prev) => {
+          const updatedMessages = prev.map((msg) =>
+            msg.id === data.messageId
+              ? { ...msg, content: data.content, isEdited: true }
+              : msg
+          );
+
+          // Update cache immediately
+          const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
+          storage.setSession(cacheKey, JSON.stringify(updatedMessages));
+
+          return updatedMessages;
+        });
+      }
+    };
+
+    // Listen for message delete updates
+    const handleMessageDelete = (event) => {
+      const data = event.detail;
+      console.log("Message deleted:", data);
+      if (data.chatId === currentChat.id) {
+        setMessages((prev) => {
+          const updatedMessages = prev.filter((msg) => msg.id !== data.messageId);
+
+          // Update cache immediately with filtered messages
+          const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
+          storage.setSession(cacheKey, JSON.stringify(updatedMessages));
+
+          return updatedMessages;
+        });
+      }
+    };
+
+    // Listen for typing status updates
+    const handleTypingUpdate = (event) => {
+      const data = event.detail;
+      if (data.chatId === currentChat.id && data.userId !== user?.id) {
+        // Handle typing indicator updates
+        console.log("User typing:", data);
+      }
+    };
+
+    // Listen for user online status updates
+    const handleUserStatusUpdate = (event) => {
+      const data = event.detail;
+      // Update user online status for private chats
+      if (chatType === "private" && currentChat.user?.id === data.userId) {
+        // This will be handled by parent component managing userStatuses
+        console.log("User status updated for private chat:", data);
+      }
+    };
+
+    // Listen for chat history cleared
+    const handleChatHistoryCleared = (event) => {
+      const data = event.detail;
+      console.log("Chat history cleared:", data);
+      if (data.chatId === currentChat.id && data.chatType === chatType) {
+        setMessages([]);
+        setMessageReadStatus({});
+
+        // Clear cache
+        const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
+        storage.removeSession(cacheKey);
+      }
+    };
+
+    // Listen for channel deletion
+    const handleChannelDeleted = (event) => {
+      const data = event.detail;
+      console.log("Channel deleted:", data);
+      if (data.chatId === currentChat.id && data.chatType === "channel") {
+        // Show toast notification
+        toast({
+          title: "Kanal o'chirildi",
+          description: "Bu kanal yaratuvchi tomonidan o'chirildi",
+          variant: "destructive",
+        });
+      }
+    };
+
+    // Register window event listeners (these match what useSocket/ChatApp dispatches)
+    window.addEventListener("new-message", handleNewMessage);
+    window.addEventListener("message", handleNewMessage);
+    window.addEventListener("real-time-message", handleNewMessage);
+    window.addEventListener("message-read", handleMessageRead);
+    window.addEventListener("message-edited", handleMessageEdit);
+    window.addEventListener("message-deleted", handleMessageDelete);
+    window.addEventListener("typing-update", handleTypingUpdate);
+    window.addEventListener("user-status-update-global", handleUserStatusUpdate);
+    window.addEventListener("chat-history-cleared", handleChatHistoryCleared);
+    window.addEventListener("channelDeleted", handleChannelDeleted);
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener("new-message", handleNewMessage);
+      window.removeEventListener("message", handleNewMessage);
+      window.removeEventListener("real-time-message", handleNewMessage);
+      window.removeEventListener("message-read", handleMessageRead);
+      window.removeEventListener("message-edited", handleMessageEdit);
+      window.removeEventListener("message-deleted", handleMessageDelete);
+      window.removeEventListener("typing-update", handleTypingUpdate);
+      window.removeEventListener("user-status-update-global", handleUserStatusUpdate);
+      window.removeEventListener("chat-history-cleared", handleChatHistoryCleared);
+      window.removeEventListener("channelDeleted", handleChannelDeleted);
+
+      // Leave chat room (only if socket is ready)
+      if (socket && socket.send && socket.readyState === WebSocket.OPEN) {
         socket.send(
           JSON.stringify({
-            type: "join-chat",
+            type: "leave-chat",
             chatId: currentChat.id,
             chatType: chatType,
             userId: user?.id,
           })
         );
       }
-
-      // Listen for new messages
-      const handleNewMessage = (event) => {
-        const messageData = event.detail;
-        console.log("New message received:", messageData);
-
-        // Only add if message belongs to current chat
-        if (
-          messageData.chatId === currentChat.id &&
-          messageData.chatType === chatType
-        ) {
-          setMessages((prev) => {
-            // Check if message already exists to avoid duplicates
-            const exists = prev.some((msg) => msg.id === messageData.id);
-            if (exists) return prev;
-
-            const updatedMessages = [...prev, messageData];
-
-            // Update cache
-            const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
-            storage.setSession(cacheKey, JSON.stringify(updatedMessages));
-
-            return updatedMessages;
-          });
-
-          // Auto-scroll to bottom for new messages if user is at bottom
-          setTimeout(() => {
-            const scrollArea = scrollAreaRef.current?.querySelector(
-              "[data-radix-scroll-area-viewport]"
-            );
-            if (scrollArea) {
-              const { scrollTop, scrollHeight, clientHeight } = scrollArea;
-              const isNearBottom =
-                scrollHeight - scrollTop - clientHeight < 100;
-
-              if (isNearBottom || messageData.user.id === user?.id) {
-                scrollArea.scrollTo({
-                  top: scrollArea.scrollHeight,
-                  behavior: "smooth",
-                });
-              } else {
-                // Show jump button and increment new messages count
-                setShowJumpButton(true);
-                setNewMessagesCount((prev) => prev + 1);
-              }
-            }
-          }, 50);
-
-          // Mark as read if user is active and message is not from self
-          if (messageData.user.id !== user?.id && document.hasFocus()) {
-            markMessageAsRead(messageData.id);
-          } else if (messageData.user.id !== user?.id) {
-            // Even if not in focus, we should still track that the message exists
-            // This will be marked as read when the user scrolls to it or focuses the window
-            console.log(
-              "New message received but not in focus, will mark as read when focused"
-            );
-          }
-        }
-      };
-
-      // Listen for message read status updates
-      const handleMessageRead = (event) => {
-        const data = event.detail;
-        console.log("Message read status update:", data);
-
-        // Handle single message read update
-        if (data.messageId) {
-          setMessageReadStatus((prev) => ({
-            ...prev,
-            [data.messageId]: data.readers || [],
-          }));
-        }
-
-        // Handle multiple messages read update (bulk read)
-        if (data.messageIds && Array.isArray(data.messageIds)) {
-          const reader = data.reader;
-          const readAt = data.timestamp;
-
-          setMessageReadStatus((prev) => {
-            const updated = { ...prev };
-            data.messageIds.forEach((msgId) => {
-              const currentReaders = updated[msgId] || [];
-              const alreadyRead = currentReaders.some(
-                (r) => r.id === reader.id
-              );
-
-              if (!alreadyRead) {
-                updated[msgId] = [
-                  ...currentReaders,
-                  {
-                    id: reader.id,
-                    username: reader.username,
-                    readAt: readAt,
-                  },
-                ];
-              }
-            });
-            return updated;
-          });
-        }
-
-        // Handle messageReadReceipt events (from server)
-        if (data.type === "messageReadReceipt" && data.messageIds) {
-          const reader = data.reader;
-          const readAt = data.timestamp;
-
-          setMessageReadStatus((prev) => {
-            const updated = { ...prev };
-            data.messageIds.forEach((msgId) => {
-              const currentReaders = updated[msgId] || [];
-              const alreadyRead = currentReaders.some(
-                (r) => r.id === reader.id
-              );
-
-              if (!alreadyRead) {
-                updated[msgId] = [
-                  ...currentReaders,
-                  {
-                    id: reader.id,
-                    username: reader.username,
-                    readAt: readAt,
-                  },
-                ];
-              }
-            });
-            return updated;
-          });
-        }
-      };
-
-      // Listen for message edit updates
-      const handleMessageEdit = (event) => {
-        const data = event.detail;
-        console.log("Message edited:", data);
-        if (data.chatId === currentChat.id) {
-          setMessages((prev) => {
-            const updatedMessages = prev.map((msg) =>
-              msg.id === data.messageId
-                ? { ...msg, content: data.content, isEdited: true }
-                : msg
-            );
-
-            // Update cache immediately
-            const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
-            storage.setSession(cacheKey, JSON.stringify(updatedMessages));
-
-            return updatedMessages;
-          });
-        }
-      };
-
-      // Listen for message delete updates
-      const handleMessageDelete = (event) => {
-        const data = event.detail;
-        console.log("Message deleted:", data);
-        if (data.chatId === currentChat.id) {
-          setMessages((prev) => {
-            const updatedMessages = prev.filter(
-              (msg) => msg.id !== data.messageId
-            );
-
-            // Update cache immediately with filtered messages
-            const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
-            storage.setSession(cacheKey, JSON.stringify(updatedMessages));
-
-            return updatedMessages;
-          });
-        }
-      };
-
-      // Listen for typing status updates
-      const handleTypingUpdate = (event) => {
-        const data = event.detail;
-        if (data.chatId === currentChat.id && data.userId !== user?.id) {
-          // Handle typing indicator updates
-          console.log("User typing:", data);
-        }
-      };
-
-      // Listen for user online status updates
-      const handleUserStatusUpdate = (event) => {
-        const data = event.detail;
-        // Update user online status for private chats
-        if (chatType === "private" && currentChat.user?.id === data.userId) {
-          // This will be handled by parent component managing userStatuses
-          console.log("User status updated for private chat:", data);
-        }
-      };
-
-      // Listen for chat history cleared
-      const handleChatHistoryCleared = (event) => {
-        const data = event.detail;
-        console.log("Chat history cleared:", data);
-        if (data.chatId === currentChat.id && data.chatType === chatType) {
-          setMessages([]);
-          setMessageReadStatus({});
-
-          // Clear cache
-          const cacheKey = `messages_${user?.id}_${chatType}_${currentChat.id}`;
-          storage.removeSession(cacheKey);
-        }
-      };
-
-      // Listen for channel deletion
-      const handleChannelDeleted = (event) => {
-        const data = event.detail;
-        console.log("Channel deleted:", data);
-        if (data.chatId === currentChat.id && data.chatType === 'channel') {
-          // Show toast notification
-          toast({
-            title: "Kanal o'chirildi",
-            description: "Bu kanal yaratuvchi tomonidan o'chirildi",
-            variant: "destructive",
-          });
-        }
-      };
-
-      // Register window event listeners (these match what useSocket dispatches)
-      window.addEventListener("new-message", handleNewMessage);
-      window.addEventListener("message-read", handleMessageRead);
-      window.addEventListener("message-edited", handleMessageEdit);
-      window.addEventListener("message-deleted", handleMessageDelete);
-      window.addEventListener("typing-update", handleTypingUpdate);
-      window.addEventListener("user-status-update", handleUserStatusUpdate);
-      window.addEventListener("chat-history-cleared", handleChatHistoryCleared);
-      window.addEventListener("channelDeleted", handleChannelDeleted);
-
-      // Cleanup function
-      return () => {
-        window.removeEventListener("new-message", handleNewMessage);
-        window.removeEventListener("message-read", handleMessageRead);
-        window.removeEventListener("message-edited", handleMessageEdit);
-        window.removeEventListener("message-deleted", handleMessageDelete);
-        window.removeEventListener("typing-update", handleTypingUpdate);
-        window.removeEventListener(
-          "user-status-update",
-          handleUserStatusUpdate
-        );
-        window.removeEventListener(
-          "chat-history-cleared",
-          handleChatHistoryCleared
-        );
-        window.removeEventListener("channelDeleted", handleChannelDeleted);
-
-        // Leave chat room
-        if (socket.send && socket.readyState === WebSocket.OPEN) {
-          socket.send(
-            JSON.stringify({
-              type: "leave-chat",
-              chatId: currentChat.id,
-              chatType: chatType,
-              userId: user?.id,
-            })
-          );
-        }
-      };
-    }
-  }, [socket, currentChat, chatType, user?.id]);
+    };
+  }, [currentChat?.id, chatType, user?.id, socket]);
 
   // Mark messages as read when component mounts or chat changes
   useEffect(() => {
@@ -1200,6 +1219,9 @@ const ChatArea = ({
         chatType,
         chatId: currentChat.id,
       };
+
+      // Play send sound immediately on user gesture to avoid autoplay restrictions
+      playSendSound();
 
       const result = await sendMessage(token, messageData);
       setMessage("");

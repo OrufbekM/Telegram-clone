@@ -32,18 +32,12 @@ const NotFound = () => {
           <div className="space-y-3">
             <Button 
               onClick={handleGoHome} 
-              className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700" 
+              className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white items-center" 
               size="lg"
             >
-              <MessageCircle className="w-4 h-4 mr-2" />
+              <MessageCircle className="w-4 h-4 mr-2 dark:text-white" />
               Bosh sahifaga qaytish
             </Button>
-          </div>
-          <div className="text-center pt-4">
-            <p className="text-xs text-gray-400 dark:text-gray-500">
-              Agar muammo davom etsa, sahifani yangilang yoki qo'llab-quvvatlash
-              xizmatiga murojaat qiling.
-            </p>
           </div>
         </CardContent>
       </Card>

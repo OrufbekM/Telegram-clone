@@ -298,71 +298,50 @@ const ChatApp = () => {
       }));
     };
 
+    // Handle user profile updates (from both userProfileUpdated and user-profile-updated)
     const handleUserProfileUpdate = (event) => {
-      const { userId, updates } = event.detail;
-      console.log('рџ“ќ ChatApp: User profile update received:', { userId, updates });
-      
-      // Update user info in all chats where this user appears
+      const { userId, updates } = event.detail || {};
+      if (!userId) return;
+
+      // Update lists
       setAllChats(prev => ({
         ...prev,
         privateChats: prev.privateChats.map(chat => {
           if (chat.otherUser && chat.otherUser.id === userId) {
-            return {
-              ...chat,
-              otherUser: {
-                ...chat.otherUser,
-                ...updates
-              }
-            };
+            return { ...chat, otherUser: { ...chat.otherUser, ...updates } };
+          }
+          if (chat.user && chat.user.id === userId) {
+            return { ...chat, user: { ...chat.user, ...updates } };
           }
           return chat;
         }),
         groups: prev.groups.map(group => {
-          // Update group members if this user is in the group
-          if (group.members) {
-            const updatedMembers = group.members.map(member => {
-              if (member.id === userId) {
-                return {
-                  ...member,
-                  ...updates
-                };
-              }
-              return member;
-            });
-            return {
-              ...group,
-              members: updatedMembers
-            };
-          }
-          return group;
+          if (!group.members) return group;
+          const members = group.members.map(m => m.id === userId ? { ...m, ...updates } : m);
+          return { ...group, members };
         }),
         channels: prev.channels.map(channel => {
-          // Update channel members if this user is in the channel
-          if (channel.members) {
-            const updatedMembers = channel.members.map(member => {
-              if (member.id === userId) {
-                return {
-                  ...member,
-                  ...updates
-                };
-              }
-              return member;
-            });
-            return {
-              ...channel,
-              members: updatedMembers
-            };
-          }
-          return channel;
+          if (!channel.members) return channel;
+          const members = channel.members.map(m => m.id === userId ? { ...m, ...updates } : m);
+          return { ...channel, members };
         })
       }));
-      
-      // Update current user if it's their own profile
-      if (user && user.id === userId) {
-        setUser(prev => ({
-          ...prev,
-          ...updates
-        }));
+
+      // Update opened private chat header if necessary
+      if (currentChat && chatType === 'private') {
+        const otherId = currentChat.otherUser?.id || currentChat.user?.id;
+        if (otherId && parseInt(otherId) === parseInt(userId)) {
+          setCurrentChat(prev => ({
+            ...prev,
+            otherUser: prev.otherUser ? { ...prev.otherUser, ...updates } : prev.otherUser,
+            user: prev.user ? { ...prev.user, ...updates } : prev.user
+          }));
+        }
+      }
+
+      // Update self
+      if (user && parseInt(user.id) === parseInt(userId)) {
+        setUser(prev => ({ ...prev, ...updates }));
       }
     };
 
@@ -371,6 +350,13 @@ const ChatApp = () => {
     window.addEventListener('group-info-updated', handleGroupInfoUpdate);
     window.addEventListener('channelInfoUpdated', handleChannelInfoUpdate);
     window.addEventListener('userProfileUpdated', handleUserProfileUpdate);
+    // Hyphenated variant from useSocket
+    const handleHyphenProfileUpdate = (e) => {
+      const { userId, updates } = e.detail || {};
+      if (!userId) return;
+      handleUserProfileUpdate({ detail: { userId, updates } });
+    };
+    window.addEventListener('user-profile-updated', handleHyphenProfileUpdate);
     
     return () => {
       window.removeEventListener('update-current-chat', handleCurrentChatUpdate);
@@ -378,6 +364,7 @@ const ChatApp = () => {
       window.removeEventListener('group-info-updated', handleGroupInfoUpdate);
       window.removeEventListener('channelInfoUpdated', handleChannelInfoUpdate);
       window.removeEventListener('userProfileUpdated', handleUserProfileUpdate);
+      window.removeEventListener('user-profile-updated', handleHyphenProfileUpdate);
     };
   }, [currentChat, chatType, user]);
 
