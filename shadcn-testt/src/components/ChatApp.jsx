@@ -579,11 +579,12 @@ const ChatApp = () => {
     }
   };
 
-  const handleClearHistory = async (chat, type) => {
+  const handleClearHistory = async (chat, type, forEveryone = false) => {
     try {
       const token = storage.getPersistent("chatToken");
       if (!token) return;
-      await clearChatHistory(token, type, chat.id);
+
+      // Always clear the current user's local cache and UI
       const userId = user?.id;
       if (userId) {
         const cacheKey = `messages_${userId}_${type}_${chat.id}`;
@@ -600,12 +601,18 @@ const ChatApp = () => {
           }
         }));
       }
-      if (clearHistoryViaWebSocket) {
-        clearHistoryViaWebSocket(type, chat.id);
+
+      if (forEveryone) {
+        // Only then call backend and broadcast to others
+        await clearChatHistory(token, type, chat.id, true);
+        if (clearHistoryViaWebSocket) {
+          clearHistoryViaWebSocket(type, chat.id);
+        }
       }
+
       toast({
         title: "Tarix tozalandi",
-        description: "Chat tarixi muvaffaqiyatli tozalandi",
+        description: forEveryone ? "Chat tarixi hamma uchun tozalandi" : "Chat tarixi siz uchun tozalandi",
       });
     } catch (error) {
       console.error('Clear history error:', error);
@@ -676,7 +683,7 @@ const ChatApp = () => {
           sendMessageViewEvent={sendMessageViewEvent}
           endMessageViewEvent={endMessageViewEvent}
           onDeleteChat={() => handleDeleteChat(currentChat, chatType)}
-          onClearHistory={() => handleClearHistory(currentChat, chatType)}
+          onClearHistory={(forEveryone) => handleClearHistory(currentChat, chatType, forEveryone)}
           socket={getCurrentSocket()}
           userStatuses={userStatuses}
         />

@@ -42,6 +42,7 @@ import { useTyping } from "../hooks/useTyping";
 import { storage } from "../utils/storageUtils";
 import { ImagePreview } from "./ImagePreview";
 import GroupLeaveModal from "./GroupLeaveModal";
+import ClearHistoryDialog from "./ClearHistoryDialog";
 
 const ChatArea = ({
   currentChat,
@@ -81,6 +82,7 @@ const ChatArea = ({
   const [showGroupDeleteModal, setShowGroupDeleteModal] = useState(false); // Group delete modal
   const [showGroupLeaveModal, setShowGroupLeaveModal] = useState(false); // Group leave modal
   const [imagePreviewData, setImagePreviewData] = useState(null); // Image preview data
+  const [showClearHistoryDialog, setShowClearHistoryDialog] = useState(false); // Clear history dialog
 
   const {
     sendMessage,
@@ -125,7 +127,6 @@ const ChatArea = ({
     } catch (_) {}
   };
 
-  // Sync sound setting from Settings modal
   useEffect(() => {
     const onSoundChanged = (e) => {
       const { enabled } = e.detail || {};
@@ -1409,6 +1410,11 @@ const ChatArea = ({
   const isChannelWriter =
     channelStatus?.role === "creator" || channelStatus?.role === "admin";
 
+  const canClearForEveryone =
+    chatType === "private" ||
+    (chatType === "group" && (groupStatus?.role === "creator" || groupStatus?.role === "admin")) ||
+    (chatType === "channel" && (channelStatus?.role === "creator" || channelStatus?.role === "admin"));
+
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 h-full">
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
@@ -1594,14 +1600,25 @@ const ChatArea = ({
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (onClearHistory) {
-                        onClearHistory();
-                      }
+                      setShowClearHistoryDialog(true);
                       setShowMenu(false);
                     }}>
                     Tarixni tozalash
                   </button>
                 ) : null}
+
+                {/* Private chat clear history */}
+                {chatType === "private" && (
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowClearHistoryDialog(true);
+                      setShowMenu(false);
+                    }}>
+                    Tarixni tozalash
+                  </button>
+                )}
 
                 {/* Leave channel */}
                 {chatType === 'channel' && channelStatus?.isMember && (
@@ -1611,7 +1628,7 @@ const ChatArea = ({
                       e.stopPropagation();
                       handleChannelLeave();
                     }}>
-                    Kanaldan chiqish
+                     Kanaldan chiqish
                   </button>
                 )}
 
@@ -1619,7 +1636,7 @@ const ChatArea = ({
                 {/* Private chat delete option */}
                 {chatType === "private" && (
                   <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-600 text-red-600 border-b border-gray-100 dark:border-slate-700 flex items-center"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-700  text-red-600 border-b border-gray-100 dark:border-slate-700 flex items-center"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (onDeleteChat) {
@@ -2405,6 +2422,18 @@ const ChatArea = ({
         onConfirm={handleGroupLeave}
         groupName={currentChat?.name || "Guruh"}
         isCreator={groupStatus?.role === 'creator'}
+      />
+
+      <ClearHistoryDialog
+        open={showClearHistoryDialog}
+        onOpenChange={setShowClearHistoryDialog}
+        showForEveryoneToggle={canClearForEveryone}
+        onConfirm={(forEveryone) => {
+          if (onClearHistory) {
+            onClearHistory(canClearForEveryone ? !!forEveryone : false);
+          }
+          setShowClearHistoryDialog(false);
+        }}
       />
 
       {/* Image Preview Modal */}

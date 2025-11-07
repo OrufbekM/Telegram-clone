@@ -89,11 +89,12 @@ export const useChat = () => {
       return handleError(err, 'Chatni o\'qilgan deb belgilashda xatolik')
     }
   }
-  const clearChatHistory = async (token, chatType, chatId) => {
+  const clearChatHistory = async (token, chatType, chatId, forEveryone = false) => {
     try {
       const { data } = await apiClient.post('/chat/messages/clear', {
-        chatType, 
-        chatId
+        chatType,
+        chatId,
+        forEveryone
       })
       return data
     } catch (err) {
